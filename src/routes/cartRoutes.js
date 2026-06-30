@@ -1,0 +1,32 @@
+
+// module.exports = router;
+
+
+const express = require('express');
+const router = express.Router();
+const { protect, optionalProtect } = require('../middleware/authMiddleware');
+const {
+  getCartItems,
+  addToCart,
+  updateCartItem,
+  removeFromCart,
+  clearCart,
+  mergeCart,
+  checkCartStatus,
+  checkCartItem,
+
+} = require('../controllers/cartController');
+
+// Use optionalProtect for ALL routes - allows both guests and logged-in users
+router.get('/', optionalProtect, getCartItems);
+router.post('/', optionalProtect, addToCart);
+router.put('/:itemId', optionalProtect, updateCartItem);
+router.delete('/:itemId', optionalProtect, removeFromCart);
+router.delete('/', optionalProtect, clearCart);
+router.post('/merge', protect, mergeCart); // This still needs full auth
+router.post('/check-status', optionalProtect, checkCartStatus);
+// In cartRoutes.js, add this route
+router.get('/check/:productId', checkCartItem);
+
+
+module.exports = router;
