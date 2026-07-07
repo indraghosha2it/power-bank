@@ -270,6 +270,7 @@ const termsRoutes = require('./src/routes/termsRoutes');
 // Add with other route imports
 const privacyRoutes = require('./src/routes/privacyRoutes');
 const contactAdminRoutes = require('./src/routes/contactMainRoute');
+const aboutRoutes = require('./src/routes/aboutRoutes');
 
 
 
@@ -415,24 +416,22 @@ app.use('/api/admin/homepage', homepageRoutes);
 
 
 
-// Add with other route registrations
+
 app.use('/api/terms', termsRoutes);
 app.use('/api/admin/terms', termsRoutes);
-// Add with other route registrations
+
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/admin/privacy', privacyRoutes);
 
-
-// Add with other route registrations
 app.use('/api/contact', contactAdminRoutes);
 app.use('/api/admin/contact', contactAdminRoutes);
 
-
-
-
-// Add with other route registrations
 app.use('/api/navbar', navbarRoutes);
 app.use('/api/admin/navbar', navbarRoutes);
+
+
+app.use('/api/about', aboutRoutes);
+app.use('/api/admin/about', aboutRoutes);
 
 // ============================================
 // TEST & HEALTH ROUTES
