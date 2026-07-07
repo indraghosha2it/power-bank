@@ -1,111 +1,186 @@
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs'); // ADDED MISSING IMPORT
-const { generateOTP, sendOTPEmail } = require('../utils/emailOtpService');
-const { generateOTP: generateResetOTP, sendPasswordResetOTP } = require('../utils/forgetPasswordOtpService');
-const { sendSubscriptionConfirmationEmail, sendUnsubscribeConfirmationEmail } = require('../utils/subscriptionEmailService');
-const { sendWelcomeEmail, sendGoogleWelcomeEmail } = require('../utils/welcomeEmailService');// Add these imports at the top
-const admin = require('../config/firebaseAdmin');
+// const User = require('../models/User');
+// const jwt = require('jsonwebtoken');
+// const crypto = require('crypto');
+// const bcrypt = require('bcryptjs'); // ADDED MISSING IMPORT
+// const { generateOTP, sendOTPEmail } = require('../utils/emailOtpService');
+// const { generateOTP: generateResetOTP, sendPasswordResetOTP } = require('../utils/forgetPasswordOtpService');
+// const { sendSubscriptionConfirmationEmail, sendUnsubscribeConfirmationEmail } = require('../utils/subscriptionEmailService');
+// const { sendWelcomeEmail, sendGoogleWelcomeEmail } = require('../utils/welcomeEmailService');// Add these imports at the top
+// const admin = require('../config/firebaseAdmin');
 
-// Generate JWT Token
-const generateToken = (user) => {
-  return jwt.sign(
-    { 
-      id: user._id, 
-      email: user.email,
-      role: user.role,
+// // Generate JWT Token
+// const generateToken = (user) => {
+//   return jwt.sign(
+//     { 
+//       id: user._id, 
+//       email: user.email,
+//       role: user.role,
       
-    },
-    process.env.JWT_SECRET || 'your-secret-key-change-this',
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
-  );
-};
+//     },
+//     process.env.JWT_SECRET || 'your-secret-key-change-this',
+//     { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//   );
+// };
 
-// Generate email verification token
-const generateVerificationToken = () => {
-  return crypto.randomBytes(32).toString('hex');
-};
-
-
-
-// const registerUser = async (req, res) => {
-//   try {
-//     const { 
-  
-//       contactPerson, 
-//       email, 
-//       phone, 
-//       whatsapp, 
-//       country, 
-//       address, 
-//       city, 
-//       zipCode, 
-//       password,
-//       role = 'customer' 
-//     } = req.body;
-
-//     // Check if user already exists
-//     const existingUser = await User.findOne({ email });
-//     if (existingUser) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'User already exists with this email'
-//       });
-//     }
-
-//     // Hash the password BEFORE saving
-//     const salt = await bcrypt.genSalt(10);
-//     const hashedPassword = await bcrypt.hash(password, salt);
-
-//     // Generate OTP
-//     const otp = generateOTP();
-//     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-//     // Create user with hashed password
-//     const user = await User.create({
-   
-//       contactPerson,
-//       email,
-//       phone,
-//       whatsapp,
-//       country,
-//       address,
-//       city,
-//       zipCode,
-//       password: hashedPassword, // Use the hashed password here
-//       role,
-//       otp,
-//       otpExpiry,
-//       registrationStatus: 'pending',
-//       emailVerified: false
-//     });
-
-//     // Send OTP email
-//     await sendOTPEmail(email, otp, companyName);
-
-//     res.status(201).json({
-//       success: true,
-//       message: 'Registration initiated. Please check your email for OTP.',
-//       data: {
-//         email: user.email,
-//         companyName: user.companyName
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Registration error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Registration failed'
-//     });
-//   }
+// // Generate email verification token
+// const generateVerificationToken = () => {
+//   return crypto.randomBytes(32).toString('hex');
 // };
 
 
-// Add this import at the top of authController.js
 
-// Then update the verifyOTP function:
+// // const registerUser = async (req, res) => {
+// //   try {
+// //     const { 
+  
+// //       contactPerson, 
+// //       email, 
+// //       phone, 
+// //       whatsapp, 
+// //       country, 
+// //       address, 
+// //       city, 
+// //       zipCode, 
+// //       password,
+// //       role = 'customer' 
+// //     } = req.body;
+
+// //     // Check if user already exists
+// //     const existingUser = await User.findOne({ email });
+// //     if (existingUser) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'User already exists with this email'
+// //       });
+// //     }
+
+// //     // Hash the password BEFORE saving
+// //     const salt = await bcrypt.genSalt(10);
+// //     const hashedPassword = await bcrypt.hash(password, salt);
+
+// //     // Generate OTP
+// //     const otp = generateOTP();
+// //     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+// //     // Create user with hashed password
+// //     const user = await User.create({
+   
+// //       contactPerson,
+// //       email,
+// //       phone,
+// //       whatsapp,
+// //       country,
+// //       address,
+// //       city,
+// //       zipCode,
+// //       password: hashedPassword, // Use the hashed password here
+// //       role,
+// //       otp,
+// //       otpExpiry,
+// //       registrationStatus: 'pending',
+// //       emailVerified: false
+// //     });
+
+// //     // Send OTP email
+// //     await sendOTPEmail(email, otp, companyName);
+
+// //     res.status(201).json({
+// //       success: true,
+// //       message: 'Registration initiated. Please check your email for OTP.',
+// //       data: {
+// //         email: user.email,
+// //         companyName: user.companyName
+// //       }
+// //     });
+
+// //   } catch (error) {
+// //     console.error('Registration error:', error);
+// //     res.status(500).json({
+// //       success: false,
+// //       error: error.message || 'Registration failed'
+// //     });
+// //   }
+// // };
+
+
+// // Add this import at the top of authController.js
+
+// // Then update the verifyOTP function:
+
+// // const registerUser = async (req, res) => {
+// //   try {
+// //     const { 
+// //       contactPerson, 
+// //       email, 
+// //       phone, 
+// //       whatsapp, 
+// //       country, 
+// //       address, 
+// //       city, 
+// //       zipCode, 
+// //       password,
+// //       role = 'customer' 
+// //     } = req.body;
+
+// //     // Check if user already exists
+// //     const existingUser = await User.findOne({ email });
+// //     if (existingUser) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'User already exists with this email'
+// //       });
+// //     }
+
+// //     // Hash the password BEFORE saving
+// //     const salt = await bcrypt.genSalt(10);
+// //     const hashedPassword = await bcrypt.hash(password, salt);
+
+// //     // Generate OTP
+// //     const otp = generateOTP();
+// //     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+// //     // Create user with hashed password
+// //     const user = await User.create({
+// //       contactPerson,
+// //       email,
+// //       phone,
+// //       whatsapp,
+// //       country,
+// //       address,
+// //       city,
+// //       zipCode,
+// //       password: hashedPassword,
+// //       role,
+// //       otp,
+// //       otpExpiry,
+// //       registrationStatus: 'pending',
+// //       emailVerified: false
+// //     });
+
+// //     // ✅ FIXED: Use contactPerson instead of companyName
+// //     await sendOTPEmail(email, otp, contactPerson);
+
+// //     res.status(201).json({
+// //       success: true,
+// //       message: 'Registration initiated. Please check your email for OTP.',
+// //       data: {
+// //         email: user.email,
+// //         // ✅ FIXED: Use contactPerson instead of companyName
+// //         contactPerson: user.contactPerson
+// //       }
+// //     });
+
+// //   } catch (error) {
+// //     console.error('Registration error:', error);
+// //     res.status(500).json({
+// //       success: false,
+// //       error: error.message || 'Registration failed'
+// //     });
+// //   }
+// // };
+
+
+
 
 // const registerUser = async (req, res) => {
 //   try {
@@ -138,6 +213,12 @@ const generateVerificationToken = () => {
 //     // Generate OTP
 //     const otp = generateOTP();
 //     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+//     // ✅ CHECK IF ALL REQUIRED FIELDS ARE FILLED AT REGISTRATION
+//     const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+//     const allFieldsFilled = requiredFields.every(field => 
+//       req.body[field] && req.body[field].toString().trim() !== ''
+//     );
 
 //     // Create user with hashed password
 //     const user = await User.create({
@@ -154,10 +235,12 @@ const generateVerificationToken = () => {
 //       otp,
 //       otpExpiry,
 //       registrationStatus: 'pending',
-//       emailVerified: false
+//       emailVerified: false,
+//       isActive: true,
+//       profileCompleted: allFieldsFilled  // ✅ SET THIS BASED ON FIELDS
 //     });
 
-//     // ✅ FIXED: Use contactPerson instead of companyName
+//     // Send OTP email
 //     await sendOTPEmail(email, otp, contactPerson);
 
 //     res.status(201).json({
@@ -165,8 +248,8 @@ const generateVerificationToken = () => {
 //       message: 'Registration initiated. Please check your email for OTP.',
 //       data: {
 //         email: user.email,
-//         // ✅ FIXED: Use contactPerson instead of companyName
-//         contactPerson: user.contactPerson
+//         contactPerson: user.contactPerson,
+//         profileCompleted: user.profileCompleted  // ✅ Return this to frontend
 //       }
 //     });
 
@@ -179,89 +262,94 @@ const generateVerificationToken = () => {
 //   }
 // };
 
+// // const verifyOTP = async (req, res) => {
+// //   try {
+// //     const { email, otp } = req.body;
 
+// //     if (!email || !otp) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'Please provide email and OTP'
+// //       });
+// //     }
 
+// //     // Find user with pending status
+// //     const user = await User.findOne({ 
+// //       email: email.toLowerCase(),
+// //       registrationStatus: 'pending'
+// //     }).select('+otp +otpExpiry');
 
-const registerUser = async (req, res) => {
-  try {
-    const { 
-      contactPerson, 
-      email, 
-      phone, 
-      whatsapp, 
-      country, 
-      address, 
-      city, 
-      zipCode, 
-      password,
-      role = 'customer' 
-    } = req.body;
+// //     if (!user) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'Invalid request or user already verified'
+// //       });
+// //     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        error: 'User already exists with this email'
-      });
-    }
+// //     // Check if OTP is expired
+// //     if (user.otpExpiry < new Date()) {
+// //       // Delete expired user
+// //       await User.deleteOne({ _id: user._id });
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'OTP has expired. Please register again.'
+// //       });
+// //     }
 
-    // Hash the password BEFORE saving
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+// //     // Verify OTP
+// //     if (user.otp !== otp) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'Invalid OTP'
+// //       });
+// //     }
 
-    // Generate OTP
-    const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+// //     // Update user status
+// //     user.isActive = true;
+// //     user.emailVerified = true;
+// //     user.registrationStatus = 'completed';
+// //     user.otp = undefined;
+// //     user.otpExpiry = undefined;
+// //     await user.save();
 
-    // ✅ CHECK IF ALL REQUIRED FIELDS ARE FILLED AT REGISTRATION
-    const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
-    const allFieldsFilled = requiredFields.every(field => 
-      req.body[field] && req.body[field].toString().trim() !== ''
-    );
+// //     // 🆕 SEND WELCOME EMAIL (non-blocking - don't await if you don't want to delay response)
+// //     // Send welcome email in background - don't block the response
+// //     sendWelcomeEmail(user.email, user.contactPerson, null)
+// //       .catch(err => console.error('Background welcome email failed:', err));
 
-    // Create user with hashed password
-    const user = await User.create({
-      contactPerson,
-      email,
-      phone,
-      whatsapp,
-      country,
-      address,
-      city,
-      zipCode,
-      password: hashedPassword,
-      role,
-      otp,
-      otpExpiry,
-      registrationStatus: 'pending',
-      emailVerified: false,
-      isActive: true,
-      profileCompleted: allFieldsFilled  // ✅ SET THIS BASED ON FIELDS
-    });
+// //     // Generate token
+// //     const token = jwt.sign(
+// //       { 
+// //         id: user._id, 
+// //         email: user.email,
+// //         role: user.role,
+        
+// //       },
+// //       process.env.JWT_SECRET || 'your-secret-key-change-this',
+// //       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+// //     );
 
-    // Send OTP email
-    await sendOTPEmail(email, otp, contactPerson);
+// //     console.log('✅ Email verified successfully for:', email);
 
-    res.status(201).json({
-      success: true,
-      message: 'Registration initiated. Please check your email for OTP.',
-      data: {
-        email: user.email,
-        contactPerson: user.contactPerson,
-        profileCompleted: user.profileCompleted  // ✅ Return this to frontend
-      }
-    });
+// //     res.json({
+// //       success: true,
+// //       message: 'Email verified successfully! Registration complete.',
+// //       token,
+// //       user: user.toJSON()
+// //     });
 
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Registration failed'
-    });
-  }
-};
+// //   } catch (error) {
+// //     console.error('❌ OTP verification error:', error);
+// //     res.status(500).json({
+// //       success: false,
+// //       error: 'Server error during verification'
+// //     });
+// //   }
+// // };
 
+// // @desc    Resend OTP
+// // @route   POST /api/auth/resend-otp
+// // @access  Public
 // const verifyOTP = async (req, res) => {
 //   try {
 //     const { email, otp } = req.body;
@@ -288,7 +376,6 @@ const registerUser = async (req, res) => {
 
 //     // Check if OTP is expired
 //     if (user.otpExpiry < new Date()) {
-//       // Delete expired user
 //       await User.deleteOne({ _id: user._id });
 //       return res.status(400).json({
 //         success: false,
@@ -304,16 +391,23 @@ const registerUser = async (req, res) => {
 //       });
 //     }
 
+//     // ✅ Check again in case fields were updated before verification
+//     const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+//     const allFieldsFilled = requiredFields.every(field => 
+//       user[field] && user[field].toString().trim() !== ''
+//     );
+
 //     // Update user status
 //     user.isActive = true;
 //     user.emailVerified = true;
 //     user.registrationStatus = 'completed';
 //     user.otp = undefined;
 //     user.otpExpiry = undefined;
+//     user.profileCompleted = allFieldsFilled;  // ✅ Preserve or update the status
+    
 //     await user.save();
 
-//     // 🆕 SEND WELCOME EMAIL (non-blocking - don't await if you don't want to delay response)
-//     // Send welcome email in background - don't block the response
+//     // Send welcome email
 //     sendWelcomeEmail(user.email, user.contactPerson, null)
 //       .catch(err => console.error('Background welcome email failed:', err));
 
@@ -323,7 +417,6 @@ const registerUser = async (req, res) => {
 //         id: user._id, 
 //         email: user.email,
 //         role: user.role,
-        
 //       },
 //       process.env.JWT_SECRET || 'your-secret-key-change-this',
 //       { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -347,9 +440,1429 @@ const registerUser = async (req, res) => {
 //   }
 // };
 
-// @desc    Resend OTP
-// @route   POST /api/auth/resend-otp
-// @access  Public
+// const resendOTP = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     if (!email) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email'
+//       });
+//     }
+
+//     const user = await User.findOne({ 
+//       email: email.toLowerCase(),
+//       registrationStatus: 'pending'
+//     });
+
+//     if (!user) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'No pending registration found for this email'
+//       });
+//     }
+
+//     // Generate new OTP
+//     const newOTP = generateOTP();
+//     const newExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+//     // Update user with new OTP
+//     user.otp = newOTP;
+//     user.otpExpiry = newExpiry;
+//     await user.save();
+
+//     // Send new OTP email
+//     await sendOTPEmail(email, newOTP, user.contactPerson);
+
+//     console.log('✅ New OTP sent to:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'New OTP sent successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Resend OTP error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to resend OTP'
+//     });
+//   }
+// };
+
+// // Update loginUser to check verification status
+// const loginUser = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     console.log('🔐 Login attempt for email:', email);
+
+//     if (!email || !password) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email and password'
+//       });
+//     }
+
+//     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+
+//     if (!user) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Invalid credentials'
+//       });
+//     }
+
+//     // Check if email is verified
+//     if (!user.emailVerified || user.registrationStatus !== 'completed') {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Please verify your email before logging in',
+//         requiresVerification: true,
+//         email: user.email
+//       });
+//     }
+
+//     if (!user.isActive) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Account is deactivated. Please contact support.'
+//       });
+//     }
+
+//     const isPasswordMatch = await user.comparePassword(password);
+//     if (!isPasswordMatch) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Invalid credentials'
+//       });
+//     }
+
+//     user.lastLogin = new Date();
+//     user.loginCount += 1;
+//     await user.save();
+
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+        
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     console.log('✅ Login successful for:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'Login successful',
+//       token,
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Login error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error during login'
+//     });
+//   }
+// };
+
+
+
+
+// // @desc    Get current user profile
+// // @route   GET /api/auth/me
+// // @access  Private
+// const getMe = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id);
+    
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       user: user.toJSON()
+//     });
+//   } catch (error) {
+//     console.error('❌ Get profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Update user profile
+// // @route   PUT /api/auth/profile
+// // @access  Private
+// const updateProfile = async (req, res) => {
+//   try {
+//     const updates = {};
+//     const allowedUpdates = [
+      
+//       'contactPerson', 
+//       'phone', 
+//       'whatsapp', 
+//       'country', 
+//       'address', 
+//       'city', 
+//       'zipCode', 
+//       'businessType',
+//       'timezone',
+//       'notificationPreferences'
+//     ];
+    
+//     allowedUpdates.forEach(field => {
+//       if (req.body[field] !== undefined) {
+//         updates[field] = req.body[field];
+//       }
+//     });
+
+//     // Get the user first
+//     const user = await User.findById(req.user.id);
+    
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Check if this is a Google user completing profile
+//     const isGoogleUser = user.authProvider === 'google';
+    
+//     // Apply updates to the user document
+//     Object.keys(updates).forEach(key => {
+//       user[key] = updates[key];
+//     });
+
+//     // If this is a Google user and all required fields are now filled,
+//     // mark profile as completed
+//     if (isGoogleUser) {
+//       const requiredFields = ['country', 'address', 'city', 'zipCode', 'phone'];
+//       const allFieldsFilled = requiredFields.every(field => 
+//         user[field] && user[field] !== 'TBD' && user[field].trim() !== ''
+//       );
+      
+//       if (allFieldsFilled) {
+//         user.profileCompleted = true;
+//       }
+//     }
+
+//     // Save the user with validation disabled for Google users
+//     const saveOptions = isGoogleUser ? { validateBeforeSave: false } : {};
+//     await user.save(saveOptions);
+
+//     res.json({
+//       success: true,
+//       message: 'Profile updated successfully',
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Update profile error:', error);
+    
+//     // Handle validation errors
+//     if (error.name === 'ValidationError') {
+//       const messages = Object.values(error.errors).map(val => val.message);
+//       return res.status(400).json({
+//         success: false,
+//         error: messages.join(', ')
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+
+// // @route   PUT /api/auth/change-password
+// // @access  Private
+// // const changePassword = async (req, res) => {
+// //   try {
+// //     const { currentPassword, newPassword } = req.body;
+
+// //     if (!currentPassword || !newPassword) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'Please provide current password and new password'
+// //       });
+// //     }
+
+// //     if (newPassword.length < 8) {
+// //       return res.status(400).json({
+// //         success: false,
+// //         error: 'New password must be at least 8 characters long'
+// //       });
+// //     }
+
+// //     // Get user with password
+// //     const user = await User.findById(req.user.id).select('+password');
+
+// //     if (!user) {
+// //       return res.status(404).json({
+// //         success: false,
+// //         error: 'User not found'
+// //       });
+// //     }
+
+// //     // Verify current password
+// //     const isMatch = await user.comparePassword(currentPassword);
+// //     if (!isMatch) {
+// //       return res.status(401).json({
+// //         success: false,
+// //         error: 'Current password is incorrect'
+// //       });
+// //     }
+
+// //     // Update password
+// //     user.password = newPassword;
+// //     await user.save();
+
+// //     res.json({
+// //       success: true,
+// //       message: 'Password changed successfully'
+// //     });
+
+// //   } catch (error) {
+// //     console.error('❌ Change password error:', error);
+// //     res.status(500).json({
+// //       success: false,
+// //       error: 'Server error'
+// //     });
+// //   }
+// // };
+
+// // @desc    Change password
+// // @route   PUT /api/auth/change-password
+// // @access  Private
+// const changePassword = async (req, res) => {
+//   try {
+//     const { currentPassword, newPassword } = req.body;
+
+//     if (!currentPassword || !newPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide current password and new password'
+//       });
+//     }
+
+//     if (newPassword.length < 8) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'New password must be at least 8 characters long'
+//       });
+//     }
+
+//     // Get user with password
+//     const user = await User.findById(req.user.id).select('+password');
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Verify current password
+//     const isMatch = await user.comparePassword(currentPassword);
+//     if (!isMatch) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Current password is incorrect'
+//       });
+//     }
+
+//     // IMPORTANT: Hash the new password before saving
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+//     // Update password with hashed version
+//     user.password = hashedPassword;
+//     await user.save();
+
+//     res.json({
+//       success: true,
+//       message: 'Password changed successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Change password error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// // @desc    Verify email
+// // @route   GET /api/auth/verify-email/:token
+// // @access  Public
+// const verifyEmail = async (req, res) => {
+//   try {
+//     const { token } = req.params;
+
+//     const user = await User.findOne({ emailVerificationToken: token });
+
+//     if (!user) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid or expired verification token'
+//       });
+//     }
+
+//     user.emailVerified = true;
+//     user.emailVerificationToken = undefined;
+//     await user.save();
+
+//     res.json({
+//       success: true,
+//       message: 'Email verified successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Email verification error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Forgot password - Send OTP
+// // @route   POST /api/auth/forgot-password
+// // @access  Public
+// const forgotPassword = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     if (!email) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email'
+//       });
+//     }
+
+//     const user = await User.findOne({ email: email.toLowerCase() });
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'No account found with this email'
+//       });
+//     }
+
+//     // Generate OTP using the aliased reset OTP generator
+//     const otp = generateResetOTP(); // This uses forgetPasswordOtpService
+//     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+//     // Save OTP to user
+//     user.resetPasswordOTP = otp;
+//     user.resetPasswordOTPExpiry = otpExpiry;
+//     await user.save();
+
+//     // Send password reset OTP email using the dedicated service
+//     try {
+//       await sendPasswordResetOTP(email, otp, user.contactPerson  || 'User');
+//     } catch (emailError) {
+//       // Clear OTP if email fails
+//       user.resetPasswordOTP = undefined;
+//       user.resetPasswordOTPExpiry = undefined;
+//       await user.save();
+      
+//       return res.status(500).json({
+//         success: false,
+//         error: 'Failed to send password reset email. Please try again.'
+//       });
+//     }
+
+//     console.log('✅ Password reset OTP sent to:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'Password reset OTP sent to your email',
+//       email: email
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Forgot password error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// // @desc    Verify password reset OTP
+// // @route   POST /api/auth/verify-reset-otp
+// // @access  Public
+// const verifyResetOTP = async (req, res) => {
+//   try {
+//     const { email, otp } = req.body;
+
+//     if (!email || !otp) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email and OTP'
+//       });
+//     }
+
+//     const user = await User.findOne({ 
+//       email: email.toLowerCase()
+//     }).select('+resetPasswordOTP +resetPasswordOTPExpiry');
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Check if OTP exists and is not expired
+//     if (!user.resetPasswordOTP || !user.resetPasswordOTPExpiry) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'No reset request found. Please request again.'
+//       });
+//     }
+
+//     // Check if OTP is expired
+//     if (user.resetPasswordOTPExpiry < new Date()) {
+//       // Clear expired OTP
+//       user.resetPasswordOTP = undefined;
+//       user.resetPasswordOTPExpiry = undefined;
+//       await user.save();
+      
+//       return res.status(400).json({
+//         success: false,
+//         error: 'OTP has expired. Please request again.'
+//       });
+//     }
+
+//     // Verify OTP
+//     if (user.resetPasswordOTP !== otp) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid OTP'
+//       });
+//     }
+
+//     // OTP is valid - keep it for password reset
+//     console.log('✅ Password reset OTP verified for:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'OTP verified successfully',
+//       email: user.email
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Verify reset OTP error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// // @desc    Reset password with OTP
+// // @route   POST /api/auth/reset-password
+// // @access  Public
+// // In your authController.js
+// const resetPassword = async (req, res) => {
+//   try {
+//     const { email, otp, password } = req.body;
+
+//     console.log('Reset password request received:', { email, otp, password: '***' });
+
+//     if (!email || !otp || !password) {
+//       console.log('Missing fields:', { email: !!email, otp: !!otp, password: !!password });
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email, OTP and new password'
+//       });
+//     }
+
+//     if (password.length < 8) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Password must be at least 8 characters long'
+//       });
+//     }
+
+//     const user = await User.findOne({ 
+//       email: email.toLowerCase()
+//     }).select('+resetPasswordOTP +resetPasswordOTPExpiry +password');
+
+//     if (!user) {
+//       console.log('User not found:', email);
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     console.log('User found:', user.email);
+//     console.log('Stored OTP:', user.resetPasswordOTP);
+//     console.log('Received OTP:', otp);
+//     console.log('OTP Expiry:', user.resetPasswordOTPExpiry);
+
+//     // Verify OTP
+//     if (!user.resetPasswordOTP || user.resetPasswordOTP !== otp) {
+//       console.log('OTP mismatch');
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid or expired OTP. Please request again.'
+//       });
+//     }
+
+//     // Check if OTP is expired
+//     if (user.resetPasswordOTPExpiry < new Date()) {
+//       console.log('OTP expired');
+//       return res.status(400).json({
+//         success: false,
+//         error: 'OTP has expired. Please request again.'
+//       });
+//     }
+
+//     // Hash the new password
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+
+//     // Update password and clear OTP
+//     user.password = hashedPassword;
+//     user.resetPasswordOTP = undefined;
+//     user.resetPasswordOTPExpiry = undefined;
+//     await user.save();
+
+//     console.log('✅ Password reset successful for:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'Password reset successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Reset password error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Google Login/Signup
+// // @route   POST /api/auth/google
+// // @access  Public
+// const googleAuth = async (req, res) => {
+//   try {
+//     const { idToken } = req.body;
+
+//     if (!idToken) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'ID token is required'
+//       });
+//     }
+
+//     // Verify the Firebase ID token
+//     const decodedToken = await admin.auth().verifyIdToken(idToken);
+//     const { email, name, picture, uid, email_verified } = decodedToken;
+
+//     // Check if user exists
+//     let user = await User.findOne({ email: email.toLowerCase() });
+
+//     if (user) {
+//       // User exists - check if this is first Google login
+//       if (!user.firebaseUid) {
+//         // Link Google account to existing user
+//         user.firebaseUid = uid;
+//         user.authProvider = 'google';
+//         user.emailVerified = user.emailVerified || email_verified;
+//         await user.save();
+//       }
+//     } else {
+//       // Create new user from Google data
+//       const nameParts = name ? name.split(' ') : ['', ''];
+//       const contactPerson = name || email.split('@')[0];
+      
+//       // Generate a random password (user will never use it)
+//       const randomPassword = Math.random().toString(36).slice(-16);
+//       const salt = await bcrypt.genSalt(10);
+//       const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+//       user = new User({
+
+//         contactPerson: contactPerson,
+//         email: email.toLowerCase(),
+//         phone: '', // Will need to be filled later
+//         whatsapp: '',
+//         country: '', // Will need to be filled later
+//         address: '',
+//         city: '',
+//         zipCode: '',
+//         role: 'customer',
+//         password: hashedPassword,
+//         businessType: 'Retailer',
+//         isActive: true,
+//         emailVerified: email_verified,
+//         registrationStatus: 'completed',
+//         firebaseUid: uid,
+//         authProvider: 'google',
+//         profilePicture: picture || ''
+//       });
+
+//       await user.save();
+//     }
+
+//     // Generate JWT token for your app
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+        
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     // Check if profile is complete (needs additional info)
+//     const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+//     res.json({
+//       success: true,
+//       message: 'Google authentication successful',
+//       token,
+//       user: user.toJSON(),
+//       isProfileComplete,
+//       requiresAdditionalInfo: !isProfileComplete
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Google auth error:', error);
+    
+//     // Handle specific Firebase errors
+//     if (error.code === 'auth/id-token-expired') {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Google token expired'
+//       });
+//     }
+    
+//     if (error.code === 'auth/argument-error') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid Google token'
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       error: 'Google authentication failed'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Complete profile after Google signup or incomplete registration
+// // @route   POST /api/auth/complete-profile
+// // @access  Private
+// const completeProfile = async (req, res) => {
+//   try {
+//     const {
+     
+//       contactPerson,
+//       phone,
+//       whatsapp,
+//       country,
+//       address,
+//       city,
+//       zipCode,
+//       businessType
+//     } = req.body;
+
+//     // Validate required fields (all are required for complete profile)
+//     const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+//     const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field] === '');
+    
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: `Missing required fields: ${missingFields.join(', ')}`,
+//         missingFields
+//       });
+//     }
+
+//     const user = await User.findById(req.user.id);
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Update all required fields
+    
+//     user.contactPerson = contactPerson;
+//     user.phone = phone;
+//     user.whatsapp = whatsapp;
+//     user.country = country;
+//     user.address = address;
+//     user.city = city;
+//     user.zipCode = zipCode;
+    
+//     if (businessType) user.businessType = businessType;
+    
+//     // Mark profile as completed
+//     user.profileCompleted = true;
+    
+//     // If this was a Google user, make sure all fields are saved properly
+//     if (user.authProvider === 'google') {
+//       // Remove any validation that might block saving
+//       await user.save({ validateBeforeSave: false });
+//     } else {
+//       await user.save();
+//     }
+    
+//     // Generate fresh token with updated info
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+        
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     res.json({
+//       success: true,
+//       message: 'Profile completed successfully',
+//       token,
+//       user: user.toJSON(),
+//       isComplete: true
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Complete profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to complete profile'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Google Signup (for new users)
+// // @route   POST /api/auth/google-signup
+// // @access  Public
+// const googleSignup = async (req, res) => {
+//   try {
+//     const { idToken } = req.body;
+
+//     if (!idToken) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'ID token is required'
+//       });
+//     }
+
+//     // Verify the Firebase ID token
+//     const decodedToken = await admin.auth().verifyIdToken(idToken);
+//     const { email, name, picture, uid, email_verified } = decodedToken;
+
+//     // Check if user already exists
+//     let user = await User.findOne({ email: email.toLowerCase() });
+
+//     if (user) {
+//       // User already exists - should login instead
+//       return res.status(409).json({
+//         success: false,
+//         error: 'An account with this email already exists. Please login instead.',
+//         existingUser: true
+//       });
+//     }
+
+//     // Create new user from Google data
+//     const nameParts = name ? name.split(' ') : ['', ''];
+//     const contactPerson = name || email.split('@')[0];
+    
+//     // Generate a random password (user will never use it)
+//     const randomPassword = Math.random().toString(36).slice(-16);
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+//     user = new User({
+     
+//       contactPerson: contactPerson,
+//       email: email.toLowerCase(),
+//       phone: '', // Will be filled in complete-profile
+//       whatsapp: '',
+//       country: '', // Will be filled in complete-profile
+//       address: '',
+//       city: '',
+//       zipCode: '',
+//       role: 'customer',
+//       password: hashedPassword,
+//       businessType: 'Retailer',
+//       isActive: true,
+//       emailVerified: email_verified,
+//       registrationStatus: 'completed',
+//       firebaseUid: uid,
+//       authProvider: 'google',
+//       profilePicture: picture || ''
+//     });
+
+//     await user.save();
+
+//     // 🆕 SEND WELCOME EMAIL FOR GOOGLE SIGNUP
+//     const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+//     sendGoogleWelcomeEmail(user.email, user.contactPerson, !isProfileComplete)
+//       .catch(err => console.error('Background welcome email failed:', err));
+
+//     // Generate JWT token for your app
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+       
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     // Check if profile is complete (needs additional info)
+//     // const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Google signup successful',
+//       token,
+//       user: user.toJSON(),
+//       isNewUser: true,
+//       requiresAdditionalInfo: !isProfileComplete
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Google signup error:', error);
+    
+//     if (error.code === 'auth/id-token-expired') {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Google token expired'
+//       });
+//     }
+    
+//     if (error.code === 'auth/argument-error') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid Google token'
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       error: 'Google signup failed'
+//     });
+//   }
+// };
+
+
+
+// // @desc    Check if user profile is complete
+// // @route   GET /api/auth/profile-status
+// // @access  Private
+// const checkProfileStatus = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id).select(' contactPerson phone whatsapp country address city zipCode profileCompleted authProvider');
+    
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Define required fields based on auth provider
+//     let requiredFields = [ 'contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+    
+//     // For Google users, companyName and contactPerson might already be set
+//     const missingFields = requiredFields.filter(field => {
+//       const value = user[field];
+//       return !value || value === '' || value === 'TBD';
+//     });
+    
+//     const isComplete = missingFields.length === 0;
+    
+//     // Update profileCompleted status if needed
+//     if (isComplete !== user.profileCompleted) {
+//       user.profileCompleted = isComplete;
+//       await user.save();
+//     }
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         isComplete,
+//         missingFields,
+//         profileCompleted: user.profileCompleted,
+//         authProvider: user.authProvider
+//       }
+//     });
+//   } catch (error) {
+//     console.error('❌ Check profile status error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// // @desc    Admin creates customer account (no OTP, direct activation)
+// // @route   POST /api/auth/admin/create-customer
+// // @access  Private (Admin only)
+// const adminCreateCustomer = async (req, res) => {
+//   try {
+//     console.log('📝 Admin creating customer account');
+
+//     const {
+     
+//       contactPerson,
+//       email,
+//       phone,
+//       whatsapp,
+//       country,
+//       address,
+//       city,
+//       zipCode,
+//       password,
+//       businessType
+//     } = req.body;
+
+//     // Validate required fields
+//     const missingFields = [];
+   
+//     if (!contactPerson) missingFields.push('contactPerson');
+//     if (!email) missingFields.push('email');
+//     if (!phone) missingFields.push('phone');
+//     if (!country) missingFields.push('country');
+//     if (!address) missingFields.push('address');
+//     if (!city) missingFields.push('city');
+//     if (!zipCode) missingFields.push('zipCode');
+//     if (!password) missingFields.push('password');
+
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: `Missing required fields: ${missingFields.join(', ')}`
+//       });
+//     }
+
+//     // Validate email format
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide a valid email address'
+//       });
+//     }
+
+//     // Validate password strength
+//     if (password.length < 8) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Password must be at least 8 characters long'
+//       });
+//     }
+
+//     // Check if user already exists
+//     const userExists = await User.findOne({ email: email.toLowerCase() });
+//     if (userExists) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'User with this email already exists'
+//       });
+//     }
+
+//     // Hash password
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+
+//     // Create new user with completed status (no OTP needed)
+//     const user = new User({
+    
+//       contactPerson,
+//       email: email.toLowerCase(),
+//       phone,
+//       whatsapp: whatsapp || '',
+//       country,
+//       address,
+//       city,
+//       zipCode,
+//       role: 'customer',
+//       password: hashedPassword,
+//       businessType: businessType || 'Retailer',
+//       isActive: true,
+//       emailVerified: true, // Auto-verified since admin created
+//       registrationStatus: 'completed', // Directly completed
+//       authProvider: 'local',
+//       createdBy: req.user.id // Track which admin created this user
+//     });
+
+//     // Save user
+//     await user.save();
+
+//     console.log('✅ Customer account created by admin:', user._id);
+
+//     // Send welcome email directly (no OTP)
+//     try {
+//       await sendWelcomeEmail(user.email, user.contactPerson);
+//       console.log('✅ Welcome email sent to:', email);
+//     } catch (emailError) {
+//       console.error('⚠️ Welcome email failed but account created:', emailError.message);
+//       // Don't fail the request if email fails - account is still created
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Customer account created successfully! Welcome email sent.',
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Admin create customer error:', error);
+    
+//     if (error.code === 11000) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Email already exists'
+//       });
+//     }
+
+//     if (error.name === 'ValidationError') {
+//       const messages = Object.values(error.errors).map(val => val.message);
+//       return res.status(400).json({
+//         success: false,
+//         error: messages.join(', ')
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error during customer creation'
+//     });
+//   }
+// };
+
+// // controllers/authController.js - Add these functions
+
+// // @desc    Subscribe to newsletter
+// // @route   POST /api/auth/subscribe
+// // @access  Private
+// // Add this import at the top of authController.js
+
+// // Update your subscribeToNewsletter function:
+// const subscribeToNewsletter = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id);
+    
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     if (user.isSubscribedToNewsletter) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Already subscribed to newsletter'
+//       });
+//     }
+
+//     user.isSubscribedToNewsletter = true;
+//     user.newsletterSubscriptionDate = new Date();
+//     await user.save();
+
+//     // 🆕 SEND SUBSCRIPTION CONFIRMATION EMAIL
+//     const emailName =  user.contactPerson || user.email.split('@')[0];
+//     sendSubscriptionConfirmationEmail(user.email, emailName)
+//       .catch(err => console.error('Background subscription email failed:', err));
+
+//     res.json({
+//       success: true,
+//       message: 'Successfully subscribed to newsletter!',
+//       isSubscribed: true
+//     });
+
+//   } catch (error) {
+//     console.error('Subscribe error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to subscribe'
+//     });
+//   }
+// };
+
+// // Update your unsubscribeFromNewsletter function:
+// const unsubscribeFromNewsletter = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id);
+    
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     if (!user.isSubscribedToNewsletter) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Not subscribed to newsletter'
+//       });
+//     }
+
+//     user.isSubscribedToNewsletter = false;
+//     user.newsletterSubscriptionDate = null;
+//     await user.save();
+
+//     // 🆕 SEND UNSUBSCRIBE CONFIRMATION EMAIL
+//     const emailName =  user.contactPerson || user.email.split('@')[0];
+//     sendUnsubscribeConfirmationEmail(user.email, emailName)
+//       .catch(err => console.error('Background unsubscribe email failed:', err));
+
+//     res.json({
+//       success: true,
+//       message: 'Successfully unsubscribed from newsletter',
+//       isSubscribed: false
+//     });
+
+//   } catch (error) {
+//     console.error('Unsubscribe error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to unsubscribe'
+//     });
+//   }
+// };
+
+// // @desc    Get subscription status
+// // @route   GET /api/auth/subscription-status
+// // @access  Private
+// const getSubscriptionStatus = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id);
+    
+//     res.json({
+//       success: true,
+//       isSubscribed: user?.isSubscribedToNewsletter || false,
+//       subscribedSince: user?.newsletterSubscriptionDate || null
+//     });
+
+//   } catch (error) {
+//     console.error('Get subscription status error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to get subscription status'
+//     });
+//   }
+// };
+
+// // Don't forget to EXPORT these functions at the bottom
+
+
+
+
+
+// // @desc    Logout user
+// // @route   POST /api/auth/logout
+// // @access  Private
+// const logoutUser = (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Logged out successfully'
+//   });
+// };
+
+// // EXPORT ALL FUNCTIONS
+// module.exports = {
+//   registerUser,
+//   verifyOTP,
+//   resendOTP,
+//   loginUser,
+//   getMe,
+//   updateProfile,
+//   changePassword,
+//   verifyEmail,
+//   forgotPassword,
+//   resetPassword,
+//   verifyResetOTP,
+//     googleAuth,
+//   completeProfile,
+//   checkProfileStatus,
+//   googleSignup,
+//   adminCreateCustomer,
+//   logoutUser,
+
+//   subscribeToNewsletter,
+//   unsubscribeFromNewsletter,
+//   getSubscriptionStatus
+// };
+
+
+
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const { generateOTP, sendOTPEmail } = require('../utils/emailOtpService');
+const { generateOTP: generateResetOTP, sendPasswordResetOTP } = require('../utils/forgetPasswordOtpService');
+const { sendSubscriptionConfirmationEmail, sendUnsubscribeConfirmationEmail } = require('../utils/subscriptionEmailService');
+const { sendWelcomeEmail, sendGoogleWelcomeEmail } = require('../utils/welcomeEmailService');
+const admin = require('../config/firebaseAdmin');
+
+// Generate JWT Token
+const generateToken = (user) => {
+  return jwt.sign(
+    { 
+      id: user._id, 
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions || []
+    },
+    process.env.JWT_SECRET || 'your-secret-key-change-this',
+    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+  );
+};
+
+// Generate email verification token
+const generateVerificationToken = () => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
+// ============================================
+// REGISTER USER
+// ============================================
+const registerUser = async (req, res) => {
+  try {
+    const { 
+      contactPerson, 
+      email, 
+      phone, 
+      whatsapp, 
+      country, 
+      address, 
+      city, 
+      zipCode, 
+      password,
+      role = 'customer' 
+    } = req.body;
+
+    // PREVENT users from registering as admin roles
+    const allowedRoles = ['customer'];
+    if (role && !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role for registration'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'User already exists with this email'
+      });
+    }
+
+    // Hash the password BEFORE saving
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate OTP
+    const otp = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Check if all required fields are filled
+    const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+    const allFieldsFilled = requiredFields.every(field => 
+      req.body[field] && req.body[field].toString().trim() !== ''
+    );
+
+    // Create user with hashed password
+    const user = await User.create({
+      contactPerson,
+      email,
+      phone,
+      whatsapp,
+      country,
+      address,
+      city,
+      zipCode,
+      password: hashedPassword,
+      role: 'customer',
+      otp,
+      otpExpiry,
+      registrationStatus: 'pending',
+      emailVerified: false,
+      isActive: true,
+      profileCompleted: allFieldsFilled,
+      permissions: [],
+      dashboardAccess: []
+    });
+
+    // Send OTP email
+    await sendOTPEmail(email, otp, contactPerson);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration initiated. Please check your email for OTP.',
+      data: {
+        email: user.email,
+        contactPerson: user.contactPerson,
+        profileCompleted: user.profileCompleted
+      }
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Registration failed'
+    });
+  }
+};
+
+// ============================================
+// VERIFY OTP
+// ============================================
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -361,7 +1874,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Find user with pending status
     const user = await User.findOne({ 
       email: email.toLowerCase(),
       registrationStatus: 'pending'
@@ -374,7 +1886,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Check if OTP is expired
     if (user.otpExpiry < new Date()) {
       await User.deleteOne({ _id: user._id });
       return res.status(400).json({
@@ -383,7 +1894,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Verify OTP
     if (user.otp !== otp) {
       return res.status(400).json({
         success: false,
@@ -391,7 +1901,7 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // ✅ Check again in case fields were updated before verification
+    // Check again in case fields were updated before verification
     const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
     const allFieldsFilled = requiredFields.every(field => 
       user[field] && user[field].toString().trim() !== ''
@@ -403,20 +1913,20 @@ const verifyOTP = async (req, res) => {
     user.registrationStatus = 'completed';
     user.otp = undefined;
     user.otpExpiry = undefined;
-    user.profileCompleted = allFieldsFilled;  // ✅ Preserve or update the status
+    user.profileCompleted = allFieldsFilled;
     
     await user.save();
 
-    // Send welcome email
     sendWelcomeEmail(user.email, user.contactPerson, null)
       .catch(err => console.error('Background welcome email failed:', err));
 
-    // Generate token
+    // Generate token with permissions
     const token = jwt.sign(
       { 
         id: user._id, 
         email: user.email,
         role: user.role,
+        permissions: user.permissions || []
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -440,6 +1950,9 @@ const verifyOTP = async (req, res) => {
   }
 };
 
+// ============================================
+// RESEND OTP
+// ============================================
 const resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -491,7 +2004,9 @@ const resendOTP = async (req, res) => {
   }
 };
 
-// Update loginUser to check verification status
+// ============================================
+// LOGIN USER
+// ============================================
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -514,7 +2029,6 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Check if email is verified
     if (!user.emailVerified || user.registrationStatus !== 'completed') {
       return res.status(401).json({
         success: false,
@@ -548,7 +2062,7 @@ const loginUser = async (req, res) => {
         id: user._id, 
         email: user.email,
         role: user.role,
-        
+        permissions: user.permissions || []
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -572,12 +2086,9 @@ const loginUser = async (req, res) => {
   }
 };
 
-
-
-
-// @desc    Get current user profile
-// @route   GET /api/auth/me
-// @access  Private
+// ============================================
+// GET CURRENT USER PROFILE
+// ============================================
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -589,9 +2100,23 @@ const getMe = async (req, res) => {
       });
     }
 
+    const userData = user.toJSON();
+    userData.role = user.role;
+    userData.permissions = user.permissions || [];
+    userData.dashboardAccess = user.dashboardAccess || [];
+
     res.json({
       success: true,
-      user: user.toJSON()
+      user: userData,
+      roleInfo: {
+        role: user.role,
+        permissions: user.permissions || [],
+        dashboardAccess: user.dashboardAccess || [],
+        isSuperAdmin: user.role === 'super_admin',
+        isAdmin: user.role === 'admin' || user.role === 'super_admin',
+        isModerator: ['super_admin', 'admin', 'moderator'].includes(user.role),
+        isCallCenterAgent: ['super_admin', 'admin', 'moderator', 'call_center_agent'].includes(user.role)
+      }
     });
   } catch (error) {
     console.error('❌ Get profile error:', error);
@@ -602,16 +2127,13 @@ const getMe = async (req, res) => {
   }
 };
 
-
-
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
+// ============================================
+// UPDATE USER PROFILE
+// ============================================
 const updateProfile = async (req, res) => {
   try {
     const updates = {};
     const allowedUpdates = [
-      
       'contactPerson', 
       'phone', 
       'whatsapp', 
@@ -630,7 +2152,6 @@ const updateProfile = async (req, res) => {
       }
     });
 
-    // Get the user first
     const user = await User.findById(req.user.id);
     
     if (!user) {
@@ -640,16 +2161,12 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    // Check if this is a Google user completing profile
     const isGoogleUser = user.authProvider === 'google';
     
-    // Apply updates to the user document
     Object.keys(updates).forEach(key => {
       user[key] = updates[key];
     });
 
-    // If this is a Google user and all required fields are now filled,
-    // mark profile as completed
     if (isGoogleUser) {
       const requiredFields = ['country', 'address', 'city', 'zipCode', 'phone'];
       const allFieldsFilled = requiredFields.every(field => 
@@ -661,7 +2178,6 @@ const updateProfile = async (req, res) => {
       }
     }
 
-    // Save the user with validation disabled for Google users
     const saveOptions = isGoogleUser ? { validateBeforeSave: false } : {};
     await user.save(saveOptions);
 
@@ -674,7 +2190,6 @@ const updateProfile = async (req, res) => {
   } catch (error) {
     console.error('❌ Update profile error:', error);
     
-    // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(val => val.message);
       return res.status(400).json({
@@ -690,67 +2205,9 @@ const updateProfile = async (req, res) => {
   }
 };
 
-
-// @route   PUT /api/auth/change-password
-// @access  Private
-// const changePassword = async (req, res) => {
-//   try {
-//     const { currentPassword, newPassword } = req.body;
-
-//     if (!currentPassword || !newPassword) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Please provide current password and new password'
-//       });
-//     }
-
-//     if (newPassword.length < 8) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'New password must be at least 8 characters long'
-//       });
-//     }
-
-//     // Get user with password
-//     const user = await User.findById(req.user.id).select('+password');
-
-//     if (!user) {
-//       return res.status(404).json({
-//         success: false,
-//         error: 'User not found'
-//       });
-//     }
-
-//     // Verify current password
-//     const isMatch = await user.comparePassword(currentPassword);
-//     if (!isMatch) {
-//       return res.status(401).json({
-//         success: false,
-//         error: 'Current password is incorrect'
-//       });
-//     }
-
-//     // Update password
-//     user.password = newPassword;
-//     await user.save();
-
-//     res.json({
-//       success: true,
-//       message: 'Password changed successfully'
-//     });
-
-//   } catch (error) {
-//     console.error('❌ Change password error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: 'Server error'
-//     });
-//   }
-// };
-
-// @desc    Change password
-// @route   PUT /api/auth/change-password
-// @access  Private
+// ============================================
+// CHANGE PASSWORD
+// ============================================
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -769,7 +2226,6 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Get user with password
     const user = await User.findById(req.user.id).select('+password');
 
     if (!user) {
@@ -779,7 +2235,6 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return res.status(401).json({
@@ -788,11 +2243,9 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // IMPORTANT: Hash the new password before saving
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
     
-    // Update password with hashed version
     user.password = hashedPassword;
     await user.save();
 
@@ -810,9 +2263,9 @@ const changePassword = async (req, res) => {
   }
 };
 
-// @desc    Verify email
-// @route   GET /api/auth/verify-email/:token
-// @access  Public
+// ============================================
+// VERIFY EMAIL
+// ============================================
 const verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
@@ -844,11 +2297,9 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-
-
-// @desc    Forgot password - Send OTP
-// @route   POST /api/auth/forgot-password
-// @access  Public
+// ============================================
+// FORGOT PASSWORD
+// ============================================
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -869,20 +2320,16 @@ const forgotPassword = async (req, res) => {
       });
     }
 
-    // Generate OTP using the aliased reset OTP generator
-    const otp = generateResetOTP(); // This uses forgetPasswordOtpService
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otp = generateResetOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Save OTP to user
     user.resetPasswordOTP = otp;
     user.resetPasswordOTPExpiry = otpExpiry;
     await user.save();
 
-    // Send password reset OTP email using the dedicated service
     try {
-      await sendPasswordResetOTP(email, otp, user.contactPerson  || 'User');
+      await sendPasswordResetOTP(email, otp, user.contactPerson || 'User');
     } catch (emailError) {
-      // Clear OTP if email fails
       user.resetPasswordOTP = undefined;
       user.resetPasswordOTPExpiry = undefined;
       await user.save();
@@ -910,9 +2357,9 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-// @desc    Verify password reset OTP
-// @route   POST /api/auth/verify-reset-otp
-// @access  Public
+// ============================================
+// VERIFY RESET OTP
+// ============================================
 const verifyResetOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -935,7 +2382,6 @@ const verifyResetOTP = async (req, res) => {
       });
     }
 
-    // Check if OTP exists and is not expired
     if (!user.resetPasswordOTP || !user.resetPasswordOTPExpiry) {
       return res.status(400).json({
         success: false,
@@ -943,9 +2389,7 @@ const verifyResetOTP = async (req, res) => {
       });
     }
 
-    // Check if OTP is expired
     if (user.resetPasswordOTPExpiry < new Date()) {
-      // Clear expired OTP
       user.resetPasswordOTP = undefined;
       user.resetPasswordOTPExpiry = undefined;
       await user.save();
@@ -956,7 +2400,6 @@ const verifyResetOTP = async (req, res) => {
       });
     }
 
-    // Verify OTP
     if (user.resetPasswordOTP !== otp) {
       return res.status(400).json({
         success: false,
@@ -964,7 +2407,6 @@ const verifyResetOTP = async (req, res) => {
       });
     }
 
-    // OTP is valid - keep it for password reset
     console.log('✅ Password reset OTP verified for:', email);
 
     res.json({
@@ -982,10 +2424,9 @@ const verifyResetOTP = async (req, res) => {
   }
 };
 
-// @desc    Reset password with OTP
-// @route   POST /api/auth/reset-password
-// @access  Public
-// In your authController.js
+// ============================================
+// RESET PASSWORD
+// ============================================
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, password } = req.body;
@@ -1024,7 +2465,6 @@ const resetPassword = async (req, res) => {
     console.log('Received OTP:', otp);
     console.log('OTP Expiry:', user.resetPasswordOTPExpiry);
 
-    // Verify OTP
     if (!user.resetPasswordOTP || user.resetPasswordOTP !== otp) {
       console.log('OTP mismatch');
       return res.status(400).json({
@@ -1033,7 +2473,6 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Check if OTP is expired
     if (user.resetPasswordOTPExpiry < new Date()) {
       console.log('OTP expired');
       return res.status(400).json({
@@ -1042,11 +2481,9 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Update password and clear OTP
     user.password = hashedPassword;
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpiry = undefined;
@@ -1068,11 +2505,8 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// In authController.js - Update googleAuth function
 
-
-// @desc    Google Login/Signup
-// @route   POST /api/auth/google
-// @access  Public
 const googleAuth = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -1084,39 +2518,46 @@ const googleAuth = async (req, res) => {
       });
     }
 
-    // Verify the Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { email, name, picture, uid, email_verified } = decodedToken;
 
-    // Check if user exists
     let user = await User.findOne({ email: email.toLowerCase() });
 
     if (user) {
-      // User exists - check if this is first Google login
+      // ✅ Update firebaseUid if not set
       if (!user.firebaseUid) {
-        // Link Google account to existing user
         user.firebaseUid = uid;
         user.authProvider = 'google';
         user.emailVerified = user.emailVerified || email_verified;
         await user.save();
       }
+      
+      // ✅ ENSURE Super Admin has permissions
+      if (user.role === 'super_admin') {
+        if (!user.permissions || user.permissions.length === 0) {
+          user.permissions = ['*'];
+          user.dashboardAccess = [
+            'analytics', 'users', 'products', 'orders', 'content',
+            'reviews', 'support', 'settings', 'coupons', 'banners',
+            'blogs', 'delivery', 'payments', 'roles'
+          ];
+          await user.save();
+        }
+      }
     } else {
-      // Create new user from Google data
-      const nameParts = name ? name.split(' ') : ['', ''];
+      // Create new user (regular customer)
       const contactPerson = name || email.split('@')[0];
       
-      // Generate a random password (user will never use it)
       const randomPassword = Math.random().toString(36).slice(-16);
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
       user = new User({
-
         contactPerson: contactPerson,
         email: email.toLowerCase(),
-        phone: '', // Will need to be filled later
+        phone: '',
         whatsapp: '',
-        country: '', // Will need to be filled later
+        country: '',
         address: '',
         city: '',
         zipCode: '',
@@ -1128,32 +2569,54 @@ const googleAuth = async (req, res) => {
         registrationStatus: 'completed',
         firebaseUid: uid,
         authProvider: 'google',
-        profilePicture: picture || ''
+        profilePicture: picture || '',
+        permissions: [],
+        dashboardAccess: []
       });
 
       await user.save();
     }
 
-    // Generate JWT token for your app
+    // ✅ Generate token with ALL permissions
     const token = jwt.sign(
       { 
         id: user._id, 
         email: user.email,
         role: user.role,
-        
+        permissions: user.permissions || []
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
 
-    // Check if profile is complete (needs additional info)
+    // ✅ Prepare user data with ALL fields
+    const userData = user.toJSON();
+    
+    // ✅ ENSURE permissions and dashboardAccess are always present
+    if (user.role === 'super_admin') {
+      userData.permissions = ['*'];
+      userData.dashboardAccess = [
+        'analytics', 'users', 'products', 'orders', 'content',
+        'reviews', 'support', 'settings', 'coupons', 'banners',
+        'blogs', 'delivery', 'payments', 'roles'
+      ];
+    } else {
+      userData.permissions = user.permissions || [];
+      userData.dashboardAccess = user.dashboardAccess || [];
+    }
+
     const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+    console.log('✅ Google auth successful for:', email);
+    console.log('👤 User role:', user.role);
+    console.log('🔑 Permissions:', userData.permissions);
+    console.log('📊 Dashboard Access:', userData.dashboardAccess);
 
     res.json({
       success: true,
       message: 'Google authentication successful',
       token,
-      user: user.toJSON(),
+      user: userData,
       isProfileComplete,
       requiresAdditionalInfo: !isProfileComplete
     });
@@ -1161,7 +2624,6 @@ const googleAuth = async (req, res) => {
   } catch (error) {
     console.error('❌ Google auth error:', error);
     
-    // Handle specific Firebase errors
     if (error.code === 'auth/id-token-expired') {
       return res.status(401).json({
         success: false,
@@ -1183,15 +2645,12 @@ const googleAuth = async (req, res) => {
   }
 };
 
-
-
-// @desc    Complete profile after Google signup or incomplete registration
-// @route   POST /api/auth/complete-profile
-// @access  Private
+// ============================================
+// COMPLETE PROFILE
+// ============================================
 const completeProfile = async (req, res) => {
   try {
     const {
-     
       contactPerson,
       phone,
       whatsapp,
@@ -1202,7 +2661,6 @@ const completeProfile = async (req, res) => {
       businessType
     } = req.body;
 
-    // Validate required fields (all are required for complete profile)
     const requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
     const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field] === '');
     
@@ -1223,8 +2681,6 @@ const completeProfile = async (req, res) => {
       });
     }
 
-    // Update all required fields
-    
     user.contactPerson = contactPerson;
     user.phone = phone;
     user.whatsapp = whatsapp;
@@ -1235,24 +2691,20 @@ const completeProfile = async (req, res) => {
     
     if (businessType) user.businessType = businessType;
     
-    // Mark profile as completed
     user.profileCompleted = true;
     
-    // If this was a Google user, make sure all fields are saved properly
     if (user.authProvider === 'google') {
-      // Remove any validation that might block saving
       await user.save({ validateBeforeSave: false });
     } else {
       await user.save();
     }
     
-    // Generate fresh token with updated info
     const token = jwt.sign(
       { 
         id: user._id, 
         email: user.email,
         role: user.role,
-        
+        permissions: user.permissions || []
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -1275,11 +2727,9 @@ const completeProfile = async (req, res) => {
   }
 };
 
-
-
-// @desc    Google Signup (for new users)
-// @route   POST /api/auth/google-signup
-// @access  Public
+// ============================================
+// GOOGLE SIGNUP
+// ============================================
 const googleSignup = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -1291,15 +2741,12 @@ const googleSignup = async (req, res) => {
       });
     }
 
-    // Verify the Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { email, name, picture, uid, email_verified } = decodedToken;
 
-    // Check if user already exists
     let user = await User.findOne({ email: email.toLowerCase() });
 
     if (user) {
-      // User already exists - should login instead
       return res.status(409).json({
         success: false,
         error: 'An account with this email already exists. Please login instead.',
@@ -1307,22 +2754,18 @@ const googleSignup = async (req, res) => {
       });
     }
 
-    // Create new user from Google data
-    const nameParts = name ? name.split(' ') : ['', ''];
     const contactPerson = name || email.split('@')[0];
     
-    // Generate a random password (user will never use it)
     const randomPassword = Math.random().toString(36).slice(-16);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
     user = new User({
-     
       contactPerson: contactPerson,
       email: email.toLowerCase(),
-      phone: '', // Will be filled in complete-profile
+      phone: '',
       whatsapp: '',
-      country: '', // Will be filled in complete-profile
+      country: '',
       address: '',
       city: '',
       zipCode: '',
@@ -1334,30 +2777,27 @@ const googleSignup = async (req, res) => {
       registrationStatus: 'completed',
       firebaseUid: uid,
       authProvider: 'google',
-      profilePicture: picture || ''
+      profilePicture: picture || '',
+      permissions: [],
+      dashboardAccess: []
     });
 
     await user.save();
 
-    // 🆕 SEND WELCOME EMAIL FOR GOOGLE SIGNUP
     const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
     sendGoogleWelcomeEmail(user.email, user.contactPerson, !isProfileComplete)
       .catch(err => console.error('Background welcome email failed:', err));
 
-    // Generate JWT token for your app
     const token = jwt.sign(
       { 
         id: user._id, 
         email: user.email,
         role: user.role,
-       
+        permissions: user.permissions || []
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
-
-    // Check if profile is complete (needs additional info)
-    // const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
 
     res.status(201).json({
       success: true,
@@ -1392,14 +2832,12 @@ const googleSignup = async (req, res) => {
   }
 };
 
-
-
-// @desc    Check if user profile is complete
-// @route   GET /api/auth/profile-status
-// @access  Private
+// ============================================
+// CHECK PROFILE STATUS
+// ============================================
 const checkProfileStatus = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select(' contactPerson phone whatsapp country address city zipCode profileCompleted authProvider');
+    const user = await User.findById(req.user.id).select('contactPerson phone whatsapp country address city zipCode profileCompleted authProvider');
     
     if (!user) {
       return res.status(404).json({
@@ -1408,10 +2846,8 @@ const checkProfileStatus = async (req, res) => {
       });
     }
 
-    // Define required fields based on auth provider
-    let requiredFields = [ 'contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+    let requiredFields = ['contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
     
-    // For Google users, companyName and contactPerson might already be set
     const missingFields = requiredFields.filter(field => {
       const value = user[field];
       return !value || value === '' || value === 'TBD';
@@ -1419,7 +2855,6 @@ const checkProfileStatus = async (req, res) => {
     
     const isComplete = missingFields.length === 0;
     
-    // Update profileCompleted status if needed
     if (isComplete !== user.profileCompleted) {
       user.profileCompleted = isComplete;
       await user.save();
@@ -1443,15 +2878,14 @@ const checkProfileStatus = async (req, res) => {
   }
 };
 
-// @desc    Admin creates customer account (no OTP, direct activation)
-// @route   POST /api/auth/admin/create-customer
-// @access  Private (Admin only)
+// ============================================
+// ADMIN CREATE CUSTOMER
+// ============================================
 const adminCreateCustomer = async (req, res) => {
   try {
     console.log('📝 Admin creating customer account');
 
     const {
-     
       contactPerson,
       email,
       phone,
@@ -1464,9 +2898,7 @@ const adminCreateCustomer = async (req, res) => {
       businessType
     } = req.body;
 
-    // Validate required fields
     const missingFields = [];
-   
     if (!contactPerson) missingFields.push('contactPerson');
     if (!email) missingFields.push('email');
     if (!phone) missingFields.push('phone');
@@ -1483,7 +2915,6 @@ const adminCreateCustomer = async (req, res) => {
       });
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({
@@ -1492,7 +2923,6 @@ const adminCreateCustomer = async (req, res) => {
       });
     }
 
-    // Validate password strength
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
@@ -1500,7 +2930,6 @@ const adminCreateCustomer = async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
       return res.status(400).json({
@@ -1509,13 +2938,10 @@ const adminCreateCustomer = async (req, res) => {
       });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user with completed status (no OTP needed)
     const user = new User({
-    
       contactPerson,
       email: email.toLowerCase(),
       phone,
@@ -1528,24 +2954,23 @@ const adminCreateCustomer = async (req, res) => {
       password: hashedPassword,
       businessType: businessType || 'Retailer',
       isActive: true,
-      emailVerified: true, // Auto-verified since admin created
-      registrationStatus: 'completed', // Directly completed
+      emailVerified: true,
+      registrationStatus: 'completed',
       authProvider: 'local',
-      createdBy: req.user.id // Track which admin created this user
+      createdBy: req.user.id,
+      permissions: [],
+      dashboardAccess: []
     });
 
-    // Save user
     await user.save();
 
     console.log('✅ Customer account created by admin:', user._id);
 
-    // Send welcome email directly (no OTP)
     try {
       await sendWelcomeEmail(user.email, user.contactPerson);
       console.log('✅ Welcome email sent to:', email);
     } catch (emailError) {
       console.error('⚠️ Welcome email failed but account created:', emailError.message);
-      // Don't fail the request if email fails - account is still created
     }
 
     res.status(201).json({
@@ -1579,14 +3004,282 @@ const adminCreateCustomer = async (req, res) => {
   }
 };
 
-// controllers/authController.js - Add these functions
+// ============================================
+// 🆕 SUPER ADMIN CREATE STAFF ACCOUNT
+// ============================================
+const createStaffAccount = async (req, res) => {
+  try {
+    console.log('📝 Super Admin creating staff account');
 
-// @desc    Subscribe to newsletter
-// @route   POST /api/auth/subscribe
-// @access  Private
-// Add this import at the top of authController.js
+    const {
+      contactPerson,
+      email,
+      phone,
+      whatsapp,
+      country,
+      address,
+      city,
+      zipCode,
+      password,
+      role,
+      permissions,
+      dashboardAccess
+    } = req.body;
 
-// Update your subscribeToNewsletter function:
+    // Validate role - only these roles can be created
+    const allowedRoles = ['admin', 'moderator', 'call_center_agent'];
+    if (!role || !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Role must be one of: ${allowedRoles.join(', ')}`
+      });
+    }
+
+    // Validate required fields
+    const missingFields = [];
+    if (!contactPerson) missingFields.push('contactPerson');
+    if (!email) missingFields.push('email');
+    if (!phone) missingFields.push('phone');
+    if (!password) missingFields.push('password');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        error: 'User with this email already exists'
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Get default permissions and dashboard access from config
+    const rolePermissions = require('../config/rolePermissions');
+    const defaultPermissions = rolePermissions[role]?.permissions || [];
+    const defaultDashboardAccess = rolePermissions[role]?.dashboardAccess || [];
+
+    // Create new staff user
+    const user = new User({
+      contactPerson,
+      email: email.toLowerCase(),
+      phone,
+      whatsapp: whatsapp || '',
+      country: country || '',
+      address: address || '',
+      city: city || '',
+      zipCode: zipCode || '',
+      role: role,
+      password: hashedPassword,
+      isActive: true,
+      emailVerified: true,
+      registrationStatus: 'completed',
+      authProvider: 'local',
+      createdBy: req.user.id,
+      permissions: permissions || defaultPermissions,
+      dashboardAccess: dashboardAccess || defaultDashboardAccess,
+      roleAssignedBy: req.user.id,
+      roleAssignedAt: new Date()
+    });
+
+    await user.save();
+
+    console.log('✅ Staff account created by super admin:', user._id);
+
+    // Send welcome email
+    try {
+      await sendWelcomeEmail(user.email, user.contactPerson, role);
+      console.log('✅ Welcome email sent to:', email);
+    } catch (emailError) {
+      console.error('⚠️ Welcome email failed but account created:', emailError.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Staff account (${role}) created successfully!`,
+      user: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('❌ Create staff error:', error);
+    
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already exists'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error during staff creation'
+    });
+  }
+};
+
+// ============================================
+// 🆕 UPDATE USER ROLE (Super Admin only)
+// ============================================
+const updateUserRole = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role, permissions, dashboardAccess, isActive } = req.body;
+
+    // Prevent self-demotion
+    if (userId === req.user.id && role !== 'super_admin') {
+      return res.status(400).json({
+        success: false,
+        error: 'You cannot demote yourself'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Prevent modifying super_admin account (except by another super_admin)
+    if (user.role === 'super_admin' && req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Cannot modify super admin account'
+      });
+    }
+
+    // Validate role
+    const validRoles = ['super_admin', 'admin', 'moderator', 'call_center_agent', 'customer'];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
+      });
+    }
+
+    // Update fields
+    if (role) user.role = role;
+    if (permissions) user.permissions = permissions;
+    if (dashboardAccess) user.dashboardAccess = dashboardAccess;
+    if (typeof isActive === 'boolean') user.isActive = isActive;
+    
+    user.roleAssignedBy = req.user.id;
+    user.roleAssignedAt = new Date();
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User role updated successfully',
+      data: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user role'
+    });
+  }
+};
+
+// ============================================
+// 🆕 GET DASHBOARD ACCESS
+// ============================================
+const getDashboardAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    // Define all possible dashboard sections
+    const allSections = [
+      'analytics',
+      'users',
+      'products',
+      'orders',
+      'content',
+      'reviews',
+      'support',
+      'settings',
+      'coupons',
+      'banners',
+      'blogs',
+      'delivery',
+      'payments',
+      'roles'
+    ];
+
+    // Super Admin has access to everything
+    if (user.role === 'super_admin') {
+      return res.json({
+        success: true,
+        data: {
+          role: user.role,
+          access: allSections,
+          canConfigure: true,
+          isSuperAdmin: true
+        }
+      });
+    }
+
+    // Other roles: use dashboardAccess array or default based on role
+    let access = user.dashboardAccess || [];
+    
+    // If no custom access defined, use role defaults
+    if (access.length === 0) {
+      const roleDefaults = {
+        admin: ['analytics', 'users', 'products', 'orders', 'content', 'reviews', 'coupons', 'banners', 'blogs', 'payments'],
+        moderator: ['analytics', 'products', 'content', 'reviews', 'banners', 'blogs'],
+        call_center_agent: ['analytics', 'orders', 'support', 'delivery'],
+        customer: []
+      };
+      access = roleDefaults[user.role] || [];
+    }
+
+    res.json({
+      success: true,
+      data: {
+        role: user.role,
+        access: access,
+        canConfigure: false,
+        isSuperAdmin: false
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard access error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get dashboard access'
+    });
+  }
+};
+
+// ============================================
+// SUBSCRIBE TO NEWSLETTER
+// ============================================
 const subscribeToNewsletter = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1609,8 +3302,7 @@ const subscribeToNewsletter = async (req, res) => {
     user.newsletterSubscriptionDate = new Date();
     await user.save();
 
-    // 🆕 SEND SUBSCRIPTION CONFIRMATION EMAIL
-    const emailName =  user.contactPerson || user.email.split('@')[0];
+    const emailName = user.contactPerson || user.email.split('@')[0];
     sendSubscriptionConfirmationEmail(user.email, emailName)
       .catch(err => console.error('Background subscription email failed:', err));
 
@@ -1629,7 +3321,9 @@ const subscribeToNewsletter = async (req, res) => {
   }
 };
 
-// Update your unsubscribeFromNewsletter function:
+// ============================================
+// UNSUBSCRIBE FROM NEWSLETTER
+// ============================================
 const unsubscribeFromNewsletter = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1652,8 +3346,7 @@ const unsubscribeFromNewsletter = async (req, res) => {
     user.newsletterSubscriptionDate = null;
     await user.save();
 
-    // 🆕 SEND UNSUBSCRIBE CONFIRMATION EMAIL
-    const emailName =  user.contactPerson || user.email.split('@')[0];
+    const emailName = user.contactPerson || user.email.split('@')[0];
     sendUnsubscribeConfirmationEmail(user.email, emailName)
       .catch(err => console.error('Background unsubscribe email failed:', err));
 
@@ -1672,9 +3365,9 @@ const unsubscribeFromNewsletter = async (req, res) => {
   }
 };
 
-// @desc    Get subscription status
-// @route   GET /api/auth/subscription-status
-// @access  Private
+// ============================================
+// GET SUBSCRIPTION STATUS
+// ============================================
 const getSubscriptionStatus = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1694,15 +3387,9 @@ const getSubscriptionStatus = async (req, res) => {
   }
 };
 
-// Don't forget to EXPORT these functions at the bottom
-
-
-
-
-
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
+// ============================================
+// LOGOUT USER
+// ============================================
 const logoutUser = (req, res) => {
   res.json({
     success: true,
@@ -1710,7 +3397,9 @@ const logoutUser = (req, res) => {
   });
 };
 
+// ============================================
 // EXPORT ALL FUNCTIONS
+// ============================================
 module.exports = {
   registerUser,
   verifyOTP,
@@ -1723,14 +3412,18 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyResetOTP,
-    googleAuth,
+  googleAuth,
   completeProfile,
   checkProfileStatus,
   googleSignup,
   adminCreateCustomer,
   logoutUser,
-
   subscribeToNewsletter,
   unsubscribeFromNewsletter,
-  getSubscriptionStatus
+  getSubscriptionStatus,
+  
+  // 🆕 New exports for role management
+  createStaffAccount,
+  updateUserRole,
+  getDashboardAccess
 };
