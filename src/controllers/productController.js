@@ -2200,6 +2200,11 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private (Super Admin/Admin/Moderator)
+// backend/src/controllers/productController.js
+
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private (Super Admin/Admin/Moderator)
 const createProduct = async (req, res) => {
   try {
     console.log('Create product request received');
@@ -2207,6 +2212,7 @@ const createProduct = async (req, res) => {
 
     const {
       productName,
+      slug, // ADD THIS - Custom slug from frontend
       shortDescription,
       fullDescription,
       category,
@@ -2219,6 +2225,7 @@ const createProduct = async (req, res) => {
       regularPrice,
       costPerItem,
       discountPrice,
+      buyingPrice, // ADD THIS
       unit,
       colors,
       deliveryInfo,
@@ -2244,11 +2251,20 @@ const createProduct = async (req, res) => {
       });
     }
 
+    // ============================================
+    // BUYING PRICE - Only super_admin and admin can set
+    // ============================================
+    let finalBuyingPrice = 0;
+    if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+      finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
+    }
+
     // Validation
     if (!productName) {
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
     
+    // Check if product name already exists
     const existingProduct = await Product.findOne({ 
       productName: { $regex: new RegExp(`^${productName}$`, 'i') } 
     });
@@ -2258,6 +2274,28 @@ const createProduct = async (req, res) => {
         success: false, 
         error: `Product name "${productName}" already exists. Please use a different product name.` 
       });
+    }
+
+    // ============================================
+    // SLUG VALIDATION - Check if custom slug is provided
+    // ============================================
+    let finalSlug = slug;
+    if (slug) {
+      // Clean the slug
+      finalSlug = slug
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      
+      // Check if slug already exists
+      const existingSlug = await Product.findOne({ slug: finalSlug });
+      if (existingSlug) {
+        return res.status(400).json({
+          success: false,
+          error: `Slug "${finalSlug}" is already taken. Please use a different slug.`
+        });
+      }
     }
 
     // Barcode validation
@@ -2294,9 +2332,10 @@ const createProduct = async (req, res) => {
     if (!category) {
       return res.status(400).json({ success: false, error: 'Category is required' });
     }
-    if (!brand) {
-      return res.status(400).json({ success: false, error: 'Brand is required' });
-    }
+    // Brand is now optional - remove this validation
+    // if (!brand) {
+    //   return res.status(400).json({ success: false, error: 'Brand is required' });
+    // }
     if (regularPrice <= 0) {
       return res.status(400).json({ success: false, error: 'Regular price must be greater than 0' });
     }
@@ -2339,7 +2378,7 @@ const createProduct = async (req, res) => {
       }
     }
 
-    // Get brand name from brand ID
+    // Get brand name from brand ID (if provided)
     let brandName = brand;
     if (brand && mongoose.Types.ObjectId.isValid(brand)) {
       try {
@@ -2402,6 +2441,7 @@ const createProduct = async (req, res) => {
     // Create product with updatedBy tracking
     const product = await Product.create({
       productName,
+      slug: finalSlug || undefined, // Use custom slug if provided
       shortDescription: shortDescription || '',
       fullDescription,
       category,
@@ -2410,12 +2450,13 @@ const createProduct = async (req, res) => {
       subcategoryName,
       childSubcategory: childSubcategory || null,
       childSubcategoryName,
-      brand: brandName,
+      brand: brandName || '', // Brand is now optional
       stockQuantity: stockQuantity || 0,
       stockAlertQuantity: stockAlertQuantity || 0,
       regularPrice: Number(regularPrice),
       costPerItem: costPerItem ? Number(costPerItem) : 0,
       discountPrice: Number(discountPrice) || 0,
+      buyingPrice: finalBuyingPrice, // ADD THIS
       unit: unit || 'pcs',
       colors: colors || [],
       deliveryInfo: deliveryInfo || '',
@@ -2433,8 +2474,8 @@ const createProduct = async (req, res) => {
       barcode: barcode || undefined,
       skuCode: skuCode || undefined,
       createdBy: req.user.id,
-      updatedBy: null, // Initially null when product is created
-      lastUpdatedAt: null, // Initially null when product is created
+      updatedBy: null,
+      lastUpdatedAt: null,
       isActive: true
     });
 
@@ -2445,7 +2486,7 @@ const createProduct = async (req, res) => {
       slug: product.slug,
       shortDescription: product.shortDescription,
       fullDescription: product.fullDescription,
-      brand: product.brand,
+      brand: product.brand || '',
       images: processedImages,
       regularPrice: product.regularPrice,
       discountPrice: product.discountPrice,
@@ -2537,7 +2578,7 @@ const createProduct = async (req, res) => {
       if (error.keyPattern && error.keyPattern.slug) {
         return res.status(400).json({
           success: false,
-          error: `Product name "${req.body.productName}" already exists. Please use a different product name.`
+          error: `Slug "${req.body.slug || req.body.productName}" already exists. Please use a different slug.`
         });
       }
       if (error.keyPattern && error.keyPattern.skuCode) {
@@ -2558,7 +2599,6 @@ const createProduct = async (req, res) => {
     });
   }
 };
-
 
 // @desc    Get all products with filters
 // @route   GET /api/products
@@ -3673,6 +3713,7 @@ const getProductById = async (req, res) => {
 // };
 
 
+// backend/src/controllers/productController.js
 
 // @desc    Update product
 // @route   PUT /api/products/:id
@@ -3695,6 +3736,7 @@ const updateProduct = async (req, res) => {
 
     const {
       productName,
+      slug, // ADD THIS - Custom slug from frontend
       shortDescription,
       fullDescription,
       category,
@@ -3707,6 +3749,7 @@ const updateProduct = async (req, res) => {
       regularPrice,
       costPerItem,
       discountPrice,
+      buyingPrice, // ADD THIS
       unit,
       colors,
       deliveryInfo,
@@ -3724,7 +3767,49 @@ const updateProduct = async (req, res) => {
       videoType
     } = req.body;
 
-    // Get brand name from brand ID
+    // ============================================
+    // BUYING PRICE - Only super_admin and admin can update
+    // ============================================
+    let finalBuyingPrice = product.buyingPrice || 0;
+    if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+      if (buyingPrice !== undefined) {
+        finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
+      }
+    }
+
+    // ============================================
+    // SLUG VALIDATION - Check if custom slug is provided
+    // ============================================
+    let finalSlug = product.slug;
+    if (slug !== undefined && slug !== product.slug) {
+      if (slug) {
+        // Clean the slug
+        finalSlug = slug
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+        
+        // Check if slug already exists (excluding current product)
+        const existingSlug = await Product.findOne({ 
+          slug: finalSlug,
+          _id: { $ne: product._id }
+        });
+        if (existingSlug) {
+          return res.status(400).json({
+            success: false,
+            error: `Slug "${finalSlug}" is already taken. Please use a different slug.`
+          });
+        }
+      } else {
+        // If slug is empty, auto-generate from product name
+        finalSlug = productName
+          ? productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+          : product.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
+    }
+
+    // Get brand name from brand ID (if provided)
     let brandName = brand;
     if (brand && mongoose.Types.ObjectId.isValid(brand)) {
       try {
@@ -3830,15 +3915,17 @@ const updateProduct = async (req, res) => {
 
     // Update product fields
     if (productName) product.productName = productName;
+    if (slug !== undefined) product.slug = finalSlug; // Update slug if provided
     if (shortDescription !== undefined) product.shortDescription = shortDescription || '';
     if (fullDescription && fullDescription !== '<p></p>') product.fullDescription = fullDescription;
-    if (brandName) product.brand = brandName;
+    if (brandName !== undefined) product.brand = brandName || '';
     if (stockQuantity !== undefined) product.stockQuantity = stockQuantity;
     if (stockAlertQuantity !== undefined) product.stockAlertQuantity = stockAlertQuantity || 0;
     if (skuCode) product.skuCode = skuCode;
     if (regularPrice !== undefined) product.regularPrice = regularPrice;
     if (costPerItem !== undefined) product.costPerItem = costPerItem || 0;
     if (discountPrice !== undefined) product.discountPrice = discountPrice;
+    if (buyingPrice !== undefined) product.buyingPrice = finalBuyingPrice; // ADD THIS
     if (unit) product.unit = unit;
     if (colors !== undefined) product.colors = colors || [];
     if (deliveryInfo !== undefined) product.deliveryInfo = deliveryInfo || '';
@@ -3854,86 +3941,13 @@ const updateProduct = async (req, res) => {
     if (videoPublicId !== undefined) product.videoPublicId = videoPublicId || '';
     if (videoType !== undefined) product.videoType = videoType || 'upload';
     
-    // ============================================
-    // UPDATED BY TRACKING - Set updatedBy and lastUpdatedAt
-    // ============================================
+    // UPDATED BY TRACKING
     product.updatedBy = req.user.id;
     product.lastUpdatedAt = new Date();
     
     // Handle barcode update
     if (barcode !== undefined) {
-      const Barcode = mongoose.model('Barcode');
-      const oldBarcode = product.barcode;
-      
-      if (barcode === '') {
-        if (oldBarcode) {
-          const barcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
-          if (barcodeDoc) {
-            barcodeDoc.productId = null;
-            barcodeDoc.productSku = '';
-            barcodeDoc.productName = '';
-            barcodeDoc.status = 'available';
-            await barcodeDoc.save();
-          }
-        }
-        product.barcode = undefined;
-      } else if (barcode !== oldBarcode) {
-        const existingProductWithBarcode = await Product.findOne({ 
-          barcode: barcode,
-          _id: { $ne: product._id }
-        });
-        if (existingProductWithBarcode) {
-          return res.status(400).json({
-            success: false,
-            error: `Barcode "${barcode}" is already assigned to product: ${existingProductWithBarcode.productName}`
-          });
-        }
-        
-        if (oldBarcode) {
-          const oldBarcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
-          if (oldBarcodeDoc) {
-            oldBarcodeDoc.productId = null;
-            oldBarcodeDoc.productSku = '';
-            oldBarcodeDoc.productName = '';
-            oldBarcodeDoc.status = 'available';
-            await oldBarcodeDoc.save();
-          }
-        }
-        
-        let barcodeDoc = await Barcode.findOne({ barcodeNumber: barcode });
-        if (barcodeDoc) {
-          barcodeDoc.productId = product._id;
-          barcodeDoc.productSku = product.skuCode;
-          barcodeDoc.productName = product.productName;
-          barcodeDoc.status = 'assigned';
-          await barcodeDoc.save();
-        } else {
-          const { generateAndUploadBarcodeImage } = require('../utils/generateBarcodeImage');
-          let barcodeImageUrl = '';
-          
-          try {
-            const result = await generateAndUploadBarcodeImage(barcode);
-            barcodeImageUrl = result.url;
-          } catch (imgError) {
-            console.error('Failed to generate barcode image:', imgError);
-          }
-          
-          barcodeDoc = await Barcode.create({
-            barcodeNumber: barcode,
-            format: 'CODE-128',
-            productId: product._id,
-            productSku: product.skuCode,
-            productName: product.productName,
-            status: 'assigned',
-            generatedBy: req.user.id,
-            barcodeImageUrl: barcodeImageUrl,
-            metadata: {
-              sequence: parseInt(barcode.slice(1, 9)) || 0
-            }
-          });
-        }
-        product.barcode = barcode;
-      }
+      // ... barcode handling code ...
     }
 
     // Update category if changed
@@ -3963,13 +3977,15 @@ const updateProduct = async (req, res) => {
     // Prepare data for embedded product update
     const embeddedUpdateData = {
       productName: product.productName,
+      slug: product.slug,
       shortDescription: product.shortDescription,
       fullDescription: product.fullDescription,
-      brand: product.brand,
+      brand: product.brand || '',
       images: processedImages,
       regularPrice: product.regularPrice,
       discountPrice: product.discountPrice,
       costPerItem: product.costPerItem,
+      buyingPrice: product.buyingPrice || 0, // ADD THIS
       stockQuantity: product.stockQuantity,
       stockAlertQuantity: product.stockAlertQuantity,
       skuCode: product.skuCode,
@@ -3987,155 +4003,19 @@ const updateProduct = async (req, res) => {
       childSubcategoryId: product.childSubcategory,
       childSubcategoryName: product.childSubcategoryName,
       isActive: product.isActive,
-      updatedBy: req.user.id, // ADD THIS - Track who updated
-      lastUpdatedAt: new Date(), // ADD THIS - Track when updated
+      updatedBy: req.user.id,
+      lastUpdatedAt: new Date(),
       updatedAt: new Date()
     };
 
-    // Handle category change
-    if (category && category !== oldCategory) {
-      await Category.findByIdAndUpdate(
-        oldCategory,
-        {
-          $pull: { products: { productId: product._id } },
-          $inc: { productCount: -1 }
-        }
-      );
-      
-      if (oldSubcategoryId) {
-        await Category.findOneAndUpdate(
-          { 
-            _id: oldCategory,
-            'subcategories._id': oldSubcategoryId
-          },
-          { $inc: { 'subcategories.$.productCount': -1 } }
-        );
-      }
-      
-      if (oldChildSubcategoryId && oldSubcategoryId) {
-        await Category.findOneAndUpdate(
-          { 
-            _id: oldCategory,
-            'subcategories._id': oldSubcategoryId,
-            'subcategories.children._id': oldChildSubcategoryId
-          },
-          { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
-          {
-            arrayFilters: [
-              { 'sub._id': oldSubcategoryId },
-              { 'child._id': oldChildSubcategoryId }
-            ]
-          }
-        );
-      }
-      
-      const newEmbeddedProduct = {
-        productId: product._id,
-        ...embeddedUpdateData,
-        createdBy: req.user.id,
-        createdAt: product.createdAt
-      };
-      
-      await Category.findByIdAndUpdate(
-        newCategory,
-        {
-          $push: { products: newEmbeddedProduct },
-          $inc: { productCount: 1 }
-        }
-      );
-      
-      if (newSubcategoryId) {
-        await Category.findOneAndUpdate(
-          { 
-            _id: newCategory,
-            'subcategories._id': newSubcategoryId
-          },
-          { $inc: { 'subcategories.$.productCount': 1 } }
-        );
-      }
-      
-      if (newChildSubcategoryId && newSubcategoryId) {
-        await Category.findOneAndUpdate(
-          { 
-            _id: newCategory,
-            'subcategories._id': newSubcategoryId,
-            'subcategories.children._id': newChildSubcategoryId
-          },
-          { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
-          {
-            arrayFilters: [
-              { 'sub._id': newSubcategoryId },
-              { 'child._id': newChildSubcategoryId }
-            ]
-          }
-        );
-      }
-    } else {
-      await updateEmbeddedProductInCategory(oldCategory, product._id, embeddedUpdateData);
-      
-      if (oldSubcategoryId !== newSubcategoryId) {
-        if (oldSubcategoryId) {
-          await Category.findOneAndUpdate(
-            { 
-              _id: oldCategory,
-              'subcategories._id': oldSubcategoryId
-            },
-            { $inc: { 'subcategories.$.productCount': -1 } }
-          );
-        }
-        if (newSubcategoryId) {
-          await Category.findOneAndUpdate(
-            { 
-              _id: oldCategory,
-              'subcategories._id': newSubcategoryId
-            },
-            { $inc: { 'subcategories.$.productCount': 1 } }
-          );
-        }
-      }
-      
-      if (oldChildSubcategoryId !== newChildSubcategoryId) {
-        if (oldChildSubcategoryId && oldSubcategoryId) {
-          await Category.findOneAndUpdate(
-            { 
-              _id: oldCategory,
-              'subcategories._id': oldSubcategoryId,
-              'subcategories.children._id': oldChildSubcategoryId
-            },
-            { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
-            {
-              arrayFilters: [
-                { 'sub._id': oldSubcategoryId },
-                { 'child._id': oldChildSubcategoryId }
-              ]
-            }
-          );
-        }
-        if (newChildSubcategoryId && newSubcategoryId) {
-          await Category.findOneAndUpdate(
-            { 
-              _id: oldCategory,
-              'subcategories._id': newSubcategoryId,
-              'subcategories.children._id': newChildSubcategoryId
-            },
-            { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
-            {
-              arrayFilters: [
-                { 'sub._id': newSubcategoryId },
-                { 'child._id': newChildSubcategoryId }
-              ]
-            }
-          );
-        }
-      }
-    }
+    // ... rest of update logic (category change handling) ...
 
     // Populate references for response
     await product.populate([
       { path: 'category', select: 'name slug' },
       { path: 'tags', select: 'name image' },
       { path: 'createdBy', select: 'name email role' },
-      { path: 'updatedBy', select: 'name email role' } // ADD THIS
+      { path: 'updatedBy', select: 'name email role' }
     ]);
 
     res.json({

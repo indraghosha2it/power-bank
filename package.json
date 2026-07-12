@@ -13,7 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "axios": "^1.13.6",
+    "axios": "^1.18.1",
     "bcryptjs": "^2.4.3",
     "bwip-js": "^4.11.1",
     "cloudinary": "^1.41.3",
@@ -30,6 +30,7 @@
     "nodemailer": "^8.0.1",
     "pdfkit": "^0.17.2",
     "routexpress-bd": "^0.0.2",
+    "ua-parser-js": "^2.0.10",
     "winston": "^3.19.0"
   },
   "devDependencies": {

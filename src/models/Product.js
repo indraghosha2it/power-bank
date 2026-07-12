@@ -506,7 +506,8 @@ const productSchema = new mongoose.Schema({
     type: String,
     lowercase: true,
     unique: true,
-    sparse: true
+    sparse: true,
+    trim: true
   },
   shortDescription: {
     type: String,
@@ -549,11 +550,9 @@ const productSchema = new mongoose.Schema({
   // Brand
   brand: {
     type: String,
-    required: [true, 'Brand is required'],
-    trim: true
+    trim: true,
+     default: '', 
   },
-
-  
 
   // Pricing
   regularPrice: {
@@ -571,6 +570,12 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Cost per item cannot be negative']
   },
+   buyingPrice: {
+    type: Number,
+    default: 0,
+    min: [0, 'Buying price cannot be negative']
+  },
+
   
   // Inventory
   stockQuantity: {
@@ -736,11 +741,37 @@ const productSchema = new mongoose.Schema({
 
 // Generate slug before saving
 productSchema.pre('save', async function() {
-  if (this.isModified('productName')) {
+  // Only modify slug if it's not manually set
+  if (this.isModified('productName') || this.isNew) {
+    // If slug is not manually set (empty or null), auto-generate from productName
+    if (!this.slug || this.slug === '') {
+      this.slug = this.productName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+    }
+  }
+  
+  // If slug is explicitly set to empty, generate from productName
+  if (this.isModified('slug') && !this.slug) {
     this.slug = this.productName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
+  }
+  
+  // Ensure slug uniqueness (if slug exists, check for duplicates)
+  if (this.slug) {
+    // Check if slug already exists (excluding current document)
+    const existingProduct = await this.constructor.findOne({
+      slug: this.slug,
+      _id: { $ne: this._id }
+    });
+    
+    if (existingProduct) {
+      // If slug exists, append a random suffix to make it unique
+      this.slug = `${this.slug}-${Date.now().toString().slice(-4)}`;
+    }
   }
   
   if (!this.metaSettings) {

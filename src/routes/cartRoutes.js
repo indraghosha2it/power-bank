@@ -1,32 +1,70 @@
 
+
+
+// // module.exports = router;
+
+
+// const express = require('express');
+// const router = express.Router();
+// const { protect, optionalProtect } = require('../middleware/authMiddleware');
+// const {
+//   getCartItems,
+//   addToCart,
+//   updateCartItem,
+//   removeFromCart,
+//   removeProductFromCart,
+//   clearCart,
+//   mergeCart,
+//   checkCartStatus,
+//   checkCartItem,
+// } = require('../controllers/cartController');
+
+// // Public routes with optional auth
+// router.get('/', optionalProtect, getCartItems);
+// router.post('/', optionalProtect, addToCart);
+// router.put('/:itemId', optionalProtect, updateCartItem);
+// router.delete('/:itemId', optionalProtect, removeFromCart);
+// router.delete('/product/:productId', optionalProtect, removeProductFromCart);
+// router.delete('/', optionalProtect, clearCart);
+// router.post('/merge', protect, mergeCart);
+// router.post('/check-status', optionalProtect, checkCartStatus);
+// router.get('/check/:productId', checkCartItem);
+
 // module.exports = router;
 
+
+
+// routes/cartRoutes.js - Update the merge route
 
 const express = require('express');
 const router = express.Router();
 const { protect, optionalProtect } = require('../middleware/authMiddleware');
 const {
   getCartItems,
+  getUserCart,
   addToCart,
   updateCartItem,
   removeFromCart,
+  removeProductFromCart,
   clearCart,
   mergeCart,
   checkCartStatus,
   checkCartItem,
-
 } = require('../controllers/cartController');
 
-// Use optionalProtect for ALL routes - allows both guests and logged-in users
+// Public routes with optional auth
 router.get('/', optionalProtect, getCartItems);
+router.get('/user', protect, getUserCart); 
 router.post('/', optionalProtect, addToCart);
 router.put('/:itemId', optionalProtect, updateCartItem);
 router.delete('/:itemId', optionalProtect, removeFromCart);
+router.delete('/product/:productId', optionalProtect, removeProductFromCart);
 router.delete('/', optionalProtect, clearCart);
-router.post('/merge', protect, mergeCart); // This still needs full auth
-router.post('/check-status', optionalProtect, checkCartStatus);
-// In cartRoutes.js, add this route
-router.get('/check/:productId', checkCartItem);
 
+// IMPORTANT: Change this to optionalProtect so it works with both guest and logged-in users
+router.post('/merge', optionalProtect, mergeCart);  // Changed from 'protect' to 'optionalProtect'
+
+router.post('/check-status', optionalProtect, checkCartStatus);
+router.get('/check/:productId', checkCartItem);
 
 module.exports = router;
