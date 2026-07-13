@@ -271,7 +271,7 @@ const termsRoutes = require('./src/routes/termsRoutes');
 const privacyRoutes = require('./src/routes/privacyRoutes');
 const contactAdminRoutes = require('./src/routes/contactMainRoute');
 const aboutRoutes = require('./src/routes/aboutRoutes');
-
+const incompleteOrderRoutes = require('./src/routes/incompleteOrderRoutes');
 
 
 
@@ -432,6 +432,7 @@ app.use('/api/admin/navbar', navbarRoutes);
 
 app.use('/api/about', aboutRoutes);
 app.use('/api/admin/about', aboutRoutes);
+app.use('/api/incomplete-orders', incompleteOrderRoutes);
 
 // ============================================
 // TEST & HEALTH ROUTES
