@@ -831,7 +831,7 @@ const customerInfoSchema = new mongoose.Schema({
 const orderStatusHistorySchema = new mongoose.Schema({
   status: { 
     type: String, 
-    enum: ['placed', 'follow_up', 'accepted', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'reminder', 'refunded', 'failed'],
+     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed'],
     required: true 
   },
   note: { 
@@ -1078,7 +1078,7 @@ const orderSchema = new mongoose.Schema({
   // Order Status
   orderStatus: { 
     type: String, 
-    enum: ['placed', 'follow_up', 'accepted', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'reminder', 'refunded', 'failed'],
+     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed'],
     default: 'placed' 
   },
   
@@ -1142,6 +1142,15 @@ const orderSchema = new mongoose.Schema({
     type: Date, 
     default: null 
   },
+   approvedAt: { 
+    type: Date, 
+    default: null 
+  },
+  
+  rejectionReason: { 
+    type: String, 
+    default: '' 
+  },
   cancellationReason: { 
     type: String, 
     default: '' 
@@ -1181,7 +1190,7 @@ orderSchema.pre('save', async function() {
       const Order = mongoose.model('Order');
       
       const lastOrder = await Order.findOne({
-        orderNumber: { $regex: `^BBuc${year}${month}` }
+        orderNumber: { $regex: `^HV${year}${month}` }
       })
       .sort({ orderNumber: -1 })
       .lean();
@@ -1189,20 +1198,20 @@ orderSchema.pre('save', async function() {
       let sequenceNumber = 1;
       
       if (lastOrder && lastOrder.orderNumber) {
-        const match = lastOrder.orderNumber.match(/BBuc\d{4}(\d{4})/);
+        const match = lastOrder.orderNumber.match(/HV\d{4}(\d{4})/);
         if (match) {
           sequenceNumber = parseInt(match[1]) + 1;
         }
       }
       
       const paddedNumber = sequenceNumber.toString().padStart(4, '0');
-      const newOrderNumber = `BBuc${year}${month}${paddedNumber}`;
+      const newOrderNumber = `HV${year}${month}${paddedNumber}`;
       
       const existingOrder = await Order.findOne({ orderNumber: newOrderNumber });
       if (existingOrder) {
         const nextSeq = sequenceNumber + 1;
         const nextPadded = nextSeq.toString().padStart(4, '0');
-        this.orderNumber = `BBuc${year}${month}${nextPadded}`;
+        this.orderNumber = `HV${year}${month}${nextPadded}`;
       } else {
         this.orderNumber = newOrderNumber;
       }
@@ -1211,7 +1220,7 @@ orderSchema.pre('save', async function() {
     } catch (error) {
       console.error('Error generating order number:', error);
       const timestamp = Date.now().toString().slice(-6);
-      this.orderNumber = `BBuc${timestamp}`;
+      this.orderNumber = `HV${timestamp}`;
     }
   }
   
@@ -1285,9 +1294,7 @@ orderSchema.methods.addStatusHistory = function(status, note = '', updatedBy = n
   return this;
 };
 
-/**
- * Update order status with history
- */
+// ========== UPDATE updateOrderStatus METHOD ==========
 orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy = null, updatedByRole = 'system') {
   const oldStatus = this.orderStatus;
   
@@ -1298,31 +1305,21 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
   this.orderStatus = newStatus;
   
   // Update timestamps based on status
-  switch(newStatus) {
-    case 'placed':
-      this.placedAt = new Date();
-      break;
-    case 'follow_up':
-      this.followUpAt = new Date();
-      break;
-    case 'accepted':
-      this.acceptedAt = new Date();
-      break;
-    case 'processing':
-      this.processingAt = new Date();
-      break;
-    case 'shipped':
-      this.shippedAt = new Date();
-      break;
-    case 'delivered':
-      this.deliveredAt = new Date();
-      break;
-    case 'cancelled':
-      this.cancelledAt = new Date();
-      break;
-    case 'reminder':
-      this.reminderAt = new Date();
-      break;
+  const timestampMap = {
+    'placed': 'placedAt',
+    'follow_up': 'followUpAt',
+    'accepted': 'acceptedAt',
+    'approved': 'approvedAt',
+    'ready_to_ship': 'shippedAt',
+    'courier_assigned': 'shippedAt',
+    'rejected': 'cancelledAt',
+    'cancelled': 'cancelledAt',
+    'reminder': 'reminderAt',
+    'delivered': 'deliveredAt'
+  };
+  
+  if (timestampMap[newStatus]) {
+    this[timestampMap[newStatus]] = new Date();
   }
   
   this.addStatusHistory(newStatus, note || `Status changed from ${oldStatus} to ${newStatus}`, updatedBy, updatedByRole);
@@ -1412,7 +1409,7 @@ orderSchema.methods.setDeliveryService = function(courierData) {
 // ========== VIRTUALS ==========
 orderSchema.virtual('formattedOrderNumber').get(function() {
   if (this.orderNumber) {
-    const match = this.orderNumber.match(/(BBuc)(\d{2})(\d{2})(\d{4})/);
+    const match = this.orderNumber.match(/(HV)(\d{2})(\d{2})(\d{4})/);
     if (match) {
       return `${match[1]}-${match[2]}${match[3]}-${match[4]}`;
     }
@@ -1443,16 +1440,21 @@ orderSchema.virtual('statusLabels').get(function() {
     'placed': 'Order Placed',
     'follow_up': 'Follow Up',
     'accepted': 'Accepted',
+    'approved': 'Approved',
+    'ready_to_ship': 'Ready to Ship',
+    'courier_assigned': 'Courier Assigned',
+    'rejected': 'Rejected',
+    'cancelled': 'Cancelled',
+    'reminder': 'Reminder',
     'processing': 'Processing',
     'shipped': 'Shipped',
     'out_for_delivery': 'Out for Delivery',
     'delivered': 'Delivered',
-    'cancelled': 'Cancelled',
-    'reminder': 'Reminder',
     'refunded': 'Refunded',
     'failed': 'Failed'
   };
   return statusMap[this.orderStatus] || this.orderStatus;
 });
+
 
 module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);

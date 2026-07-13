@@ -1,3 +1,4 @@
+
 // const jwt = require('jsonwebtoken');
 // const User = require('../models/User');
 
@@ -5,19 +6,14 @@
 // const protect = async (req, res, next) => {
 //   let token;
 
-//   // Check for token in headers
 //   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
 //     try {
-//       // Get token from header
 //       token = req.headers.authorization.split(' ')[1];
-
-//       // Verify token
 //       const decoded = jwt.verify(
 //         token, 
 //         process.env.JWT_SECRET || 'your-secret-key-change-this'
 //       );
 
-//       // Get user from token
 //       req.user = await User.findById(decoded.id).select('-password');
 
 //       if (!req.user) {
@@ -27,7 +23,6 @@
 //         });
 //       }
 
-//       // Check if user is active
 //       if (!req.user.isActive) {
 //         return res.status(401).json({
 //           success: false,
@@ -68,7 +63,7 @@
 //   }
 // };
 
-// // Authorize by roles
+// // NEW: Enhanced role-based authorization
 // const authorize = (...roles) => {
 //   return (req, res, next) => {
 //     if (!req.user) {
@@ -89,7 +84,32 @@
 //   };
 // };
 
-// // Check if user is admin
+// // NEW: Permission-based authorization
+// const hasPermission = (permission) => {
+//   return (req, res, next) => {
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Not authorized'
+//       });
+//     }
+
+//     if (req.user.role === 'super_admin') {
+//       return next();
+//     }
+
+//     if (!req.user.permissions || !req.user.permissions.includes(permission)) {
+//       return res.status(403).json({
+//         success: false,
+//         error: `Permission '${permission}' required`
+//       });
+//     }
+
+//     next();
+//   };
+// };
+
+// // Check if user is admin (for backward compatibility)
 // const isAdmin = (req, res, next) => {
 //   if (!req.user) {
 //     return res.status(401).json({
@@ -98,7 +118,7 @@
 //     });
 //   }
 
-//   if (req.user.role !== 'admin') {
+//   if (!['super_admin', 'admin'].includes(req.user.role)) {
 //     return res.status(403).json({
 //       success: false,
 //       error: 'Admin access required'
@@ -117,7 +137,7 @@
 //     });
 //   }
 
-//   if (!['admin', 'moderator'].includes(req.user.role)) {
+//   if (!['super_admin', 'admin', 'moderator'].includes(req.user.role)) {
 //     return res.status(403).json({
 //       success: false,
 //       error: 'Moderator or admin access required'
@@ -126,7 +146,28 @@
 
 //   next();
 // };
-// // Add this to your authMiddleware.js
+
+// // NEW: Check if user is call center agent or above
+// const isCallCenterOrAbove = (req, res, next) => {
+//   if (!req.user) {
+//     return res.status(401).json({
+//       success: false,
+//       error: 'Not authorized'
+//     });
+//   }
+
+//   const allowedRoles = ['super_admin', 'admin', 'moderator', 'call_center_agent'];
+//   if (!allowedRoles.includes(req.user.role)) {
+//     return res.status(403).json({
+//       success: false,
+//       error: 'Call center agent or higher access required'
+//     });
+//   }
+
+//   next();
+// };
+
+// // Optional protect (for guest access)
 // const optionalProtect = async (req, res, next) => {
 //   let token;
 
@@ -150,8 +191,10 @@
 // module.exports = {
 //   protect,
 //   authorize,
+//   hasPermission,
 //   isAdmin,
 //   isModeratorOrAdmin,
+//   isCallCenterOrAbove,
 //   optionalProtect
 // };
 
@@ -325,6 +368,47 @@ const isCallCenterOrAbove = (req, res, next) => {
   next();
 };
 
+// ========== NEW: AGENT MIDDLEWARE ==========
+// Check if user is a call center agent (allows super_admin, admin, moderator, call_center_agent)
+const isAgent = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Not authorized'
+    });
+  }
+
+  const allowedRoles = ['super_admin', 'admin', 'moderator', 'call_center_agent'];
+  if (!allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Call center agent or higher access required'
+    });
+  }
+
+  next();
+};
+
+// ========== NEW: STRICT AGENT ONLY ==========
+// Check if user is strictly a call center agent (only call_center_agent)
+const isAgentOnly = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Not authorized'
+    });
+  }
+
+  if (req.user.role !== 'call_center_agent') {
+    return res.status(403).json({
+      success: false,
+      error: 'Call center agent access only'
+    });
+  }
+
+  next();
+};
+
 // Optional protect (for guest access)
 const optionalProtect = async (req, res, next) => {
   let token;
@@ -353,5 +437,7 @@ module.exports = {
   isAdmin,
   isModeratorOrAdmin,
   isCallCenterOrAbove,
+  isAgent,        // NEW
+  isAgentOnly,    // NEW (optional)
   optionalProtect
 };

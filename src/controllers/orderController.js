@@ -2987,7 +2987,8 @@ const getOrderById = async (req, res) => {
     const userId = req.user?._id;
     const sessionId = req.headers['x-session-id'] || req.cookies?.sessionId;
     
-    const order = await Order.findById(id);
+    const order = await Order.findById(id)
+     .populate('statusHistory.updatedBy', 'email name contactPerson');
     
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
@@ -3008,11 +3009,232 @@ const getOrderById = async (req, res) => {
   }
 };
 
+
 // ========== UPDATE ORDER STATUS ==========
+// @desc    Update order status (Admin/Moderator/Call Center)
+// @route   PUT /api/orders/:id/status
+// @access  Private (Admin/Moderator)
+// const updateOrderStatus = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { orderStatus, trackingNumber, deliveryNote, cancellationReason } = req.body;
+    
+//     const order = await Order.findById(id);
+    
+//     if (!order) {
+//       return res.status(404).json({ success: false, error: 'Order not found' });
+//     }
+    
+//     // Check if order is cancelled - no further actions allowed
+//     if (order.orderStatus === 'cancelled') {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is cancelled. No further actions can be performed.' 
+//       });
+//     }
+    
+//     // Check if order is delivered - no further actions allowed
+//     if (order.orderStatus === 'delivered') {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is already delivered. Status cannot be changed.' 
+//       });
+//     }
+    
+//     // Define allowed status transitions
+//     const allowedTransitions = {
+//       'placed': ['follow_up', 'cancelled'],
+//       'follow_up': ['accepted', 'cancelled', 'reminder'],
+//       'reminder': ['accepted', 'cancelled'],
+//       'accepted': ['processing', 'cancelled'],
+//       'processing': ['shipped', 'cancelled'],
+//       'shipped': ['out_for_delivery', 'delivered', 'cancelled'],
+//       'out_for_delivery': ['delivered', 'cancelled'],
+//       'delivered': [], // No further changes allowed
+//       'cancelled': []  // No further changes allowed
+//     };
+    
+//     const currentStatus = order.orderStatus;
+//     const newStatus = orderStatus;
+    
+//     // Validate status transition
+//     if (currentStatus !== newStatus) {
+//       const allowedNext = allowedTransitions[currentStatus] || [];
+//       if (!allowedNext.includes(newStatus)) {
+//         return res.status(400).json({ 
+//           success: false, 
+//           error: `Invalid status transition from "${currentStatus}" to "${newStatus}". Allowed: ${allowedNext.join(', ')}` 
+//         });
+//       }
+//     }
+    
+//     const oldStatus = order.orderStatus;
+    
+//     // Handle special cases for status changes
+    
+//     // If order is being cancelled
+//     if (orderStatus === 'cancelled' && order.orderStatus !== 'cancelled') {
+//       order.cancelledAt = new Date();
+//       if (cancellationReason) {
+//         order.cancellationReason = cancellationReason;
+//       }
+      
+//       // Restore stock for cancelled order
+//       for (const item of order.items) {
+//         await Product.findByIdAndUpdate(
+//           item.productId,
+//           { $inc: { stockQuantity: item.quantity } }
+//         );
+//       }
+//     }
+    
+//     // If order is being delivered
+//     if (orderStatus === 'delivered' && order.orderStatus !== 'delivered') {
+//       order.deliveredAt = new Date();
+      
+//       // For COD orders, automatically mark payment as paid when delivered
+//       if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
+//         order.paymentStatus = 'paid';
+//         console.log(`✅ COD order ${order.orderNumber} - Payment auto-updated to Paid on delivery`);
+//       }
+//     }
+    
+//     // Update order fields
+//     if (orderStatus) order.orderStatus = orderStatus;
+//     if (trackingNumber !== undefined) order.trackingNumber = trackingNumber;
+//     if (deliveryNote !== undefined) order.deliveryNote = deliveryNote;
+    
+//     // Update timestamp based on status
+//     switch(orderStatus) {
+//       case 'placed':
+//         order.placedAt = new Date();
+//         break;
+//       case 'follow_up':
+//         order.followUpAt = new Date();
+//         break;
+//       case 'accepted':
+//         order.acceptedAt = new Date();
+//         break;
+//       case 'processing':
+//         order.processingAt = new Date();
+//         break;
+//       case 'shipped':
+//         order.shippedAt = new Date();
+//         break;
+//       case 'delivered':
+//         order.deliveredAt = new Date();
+//         break;
+//       case 'cancelled':
+//         order.cancelledAt = new Date();
+//         break;
+//       case 'reminder':
+//         order.reminderAt = new Date();
+//         break;
+//     }
+    
+//     // ========== FIX: Map user role to valid enum value ==========
+//     const userId = req.user?._id;
+//     let userRole = req.user?.role || 'admin';
+    
+//     // Map call_center_agent to call_center (valid enum value)
+//     if (userRole === 'call_center_agent') {
+//       userRole = 'call_center';
+//     }
+    
+//     // Map customer to user (valid enum value)
+//     if (userRole === 'customer') {
+//       userRole = 'user';
+//     }
+    
+//     // Map super_admin to super_admin (already valid)
+//     // Map admin to admin (already valid)
+//     // Map moderator to moderator (already valid)
+    
+//     // Create status note
+//     let statusNote = `Status updated from ${oldStatus} to ${orderStatus}`;
+    
+//     if (orderStatus === 'cancelled' && cancellationReason) {
+//       statusNote = cancellationReason;
+//     }
+    
+//     if (orderStatus === 'delivered') {
+//       statusNote = 'Order delivered successfully';
+//     }
+    
+//     if (orderStatus === 'follow_up') {
+//       statusNote = 'Order sent to call center for follow up';
+//     }
+    
+//     if (orderStatus === 'accepted') {
+//       statusNote = 'Order accepted by call center';
+//     }
+    
+//     if (orderStatus === 'reminder') {
+//       statusNote = 'Reminder sent to customer';
+//     }
+    
+//     // Add status history with mapped role
+//     order.addStatusHistory(orderStatus, statusNote, userId, userRole);
+    
+//     await order.save();
+    
+//     // Send email notifications
+//     if (oldStatus !== orderStatus) {
+//       // Send to customer ONLY if email exists
+//       if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+//         try {
+//           await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, orderStatus);
+//           console.log('✅ Status update email sent to customer for order:', order.orderNumber);
+//         } catch (emailError) {
+//           console.error('❌ Status update email error:', emailError.message);
+//         }
+//       }
+
+//       // ALWAYS send admin notification
+//       try {
+//         await sendOrderNotificationToAdmin(order, 'status_update');
+//         console.log('✅ Status update notification sent to admin for order:', order.orderNumber);
+//       } catch (emailError) {
+//         console.error('❌ Admin notification error on status update:', emailError.message);
+//       }
+//     }
+    
+//     // Prepare response message
+//     let responseMessage = `Order status updated to ${orderStatus}`;
+//     if (orderStatus === 'delivered' && order.paymentMethod === 'cod' && order.paymentStatus === 'paid') {
+//       responseMessage = `Order delivered and payment marked as Paid`;
+//     }
+    
+//     res.json({
+//       success: true,
+//       data: order,
+//       message: responseMessage
+//     });
+    
+//   } catch (error) {
+//     console.error('Update order status error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+
+// controllers/orderController.js - Update updateOrderStatus
+
+// ========== UPDATE ORDER STATUS - FULL FLOW ==========
+// @desc    Update order status (Admin/Moderator/Super Admin)
+// @route   PUT /api/orders/:id/status
+// @access  Private (Admin/Moderator/Super Admin)
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { orderStatus, trackingNumber, deliveryNote, cancellationReason } = req.body;
+    const { 
+      orderStatus, 
+      trackingNumber, 
+      deliveryNote, 
+      cancellationReason, 
+      rejectionReason,
+      courierService 
+    } = req.body;
     
     const order = await Order.findById(id);
     
@@ -3020,6 +3242,7 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
     
+    // Check if order is cancelled - no further actions allowed
     if (order.orderStatus === 'cancelled') {
       return res.status(400).json({ 
         success: false, 
@@ -3027,6 +3250,7 @@ const updateOrderStatus = async (req, res) => {
       });
     }
     
+    // Check if order is delivered - no further actions allowed
     if (order.orderStatus === 'delivered') {
       return res.status(400).json({ 
         success: false, 
@@ -3034,22 +3258,44 @@ const updateOrderStatus = async (req, res) => {
       });
     }
     
+    // Check if order has courier assigned - no manual changes allowed
+    if (order.orderStatus === 'courier_assigned') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is with courier. Status cannot be changed manually.' 
+      });
+    }
+    
+    // Check if order is in courier statuses - no manual changes
+    if (['processing', 'shipped', 'out_for_delivery'].includes(order.orderStatus)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is being handled by courier service. Status cannot be changed manually.' 
+      });
+    }
+    
+    // Define allowed status transitions - COMPLETE FLOW
     const allowedTransitions = {
       'placed': ['follow_up', 'cancelled'],
-      'follow_up': ['accepted', 'cancelled', 'reminder'],
-      'reminder': ['accepted', 'cancelled'],
-      'accepted': ['processing', 'cancelled'],
-      'processing': ['shipped', 'cancelled'],
-      'shipped': ['out_for_delivery', 'delivered', 'cancelled'],
-      'out_for_delivery': ['delivered', 'cancelled'],
-      'delivered': [],
-      'cancelled': []
+      'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
+      'reminder': ['accepted', 'rejected', 'cancelled'],
+      'accepted': ['approved', 'cancelled'],
+      'approved': ['ready_to_ship', 'cancelled'],
+      'ready_to_ship': ['courier_assigned', 'cancelled'],
+      'rejected': ['cancelled'],
+      'courier_assigned': [], // No manual changes (courier handles it)
+      'processing': [], // Courier handles
+      'shipped': [], // Courier handles
+      'out_for_delivery': [], // Courier handles
+      'delivered': [], // No further changes allowed
+      'cancelled': []  // No further changes allowed
     };
     
     const currentStatus = order.orderStatus;
     const newStatus = orderStatus;
     const userRole = req.user?.role || 'admin';
     
+    // Validate status transition
     if (currentStatus !== newStatus) {
       const allowedNext = allowedTransitions[currentStatus] || [];
       if (!allowedNext.includes(newStatus)) {
@@ -3062,12 +3308,16 @@ const updateOrderStatus = async (req, res) => {
     
     const oldStatus = order.orderStatus;
     
+    // Handle special cases for status changes
+    
+    // If order is being cancelled
     if (orderStatus === 'cancelled' && order.orderStatus !== 'cancelled') {
       order.cancelledAt = new Date();
       if (cancellationReason) {
         order.cancellationReason = cancellationReason;
       }
       
+      // Restore stock for cancelled order
       for (const item of order.items) {
         await Product.findByIdAndUpdate(
           item.productId,
@@ -3076,35 +3326,90 @@ const updateOrderStatus = async (req, res) => {
       }
     }
     
+    // If order is being rejected
+    if (orderStatus === 'rejected' && order.orderStatus !== 'rejected') {
+      order.cancelledAt = new Date();
+      if (rejectionReason) {
+        order.rejectionReason = rejectionReason;
+      }
+      
+      // Restore stock for rejected order
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { stockQuantity: item.quantity } }
+        );
+      }
+    }
+    
+    // If order is being delivered
     if (orderStatus === 'delivered' && order.orderStatus !== 'delivered') {
       order.deliveredAt = new Date();
       
+      // For COD orders, automatically mark payment as paid when delivered
       if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
         order.paymentStatus = 'paid';
         console.log(`✅ COD order ${order.orderNumber} - Payment auto-updated to Paid on delivery`);
       }
     }
     
+    // If order is being assigned to courier
+    if (orderStatus === 'courier_assigned' && courierService) {
+      // Set delivery service info
+      order.setDeliveryService({
+        courierName: courierService,
+        courierSlug: courierService.toLowerCase(),
+        deliveryStatus: 'processing',
+        trackingNumber: trackingNumber || null
+      });
+    }
+    
+    // Update order fields
     if (orderStatus) order.orderStatus = orderStatus;
     if (trackingNumber !== undefined) order.trackingNumber = trackingNumber;
     if (deliveryNote !== undefined) order.deliveryNote = deliveryNote;
     
-    switch(orderStatus) {
-      case 'placed': order.placedAt = new Date(); break;
-      case 'follow_up': order.followUpAt = new Date(); break;
-      case 'accepted': order.acceptedAt = new Date(); break;
-      case 'processing': order.processingAt = new Date(); break;
-      case 'shipped': order.shippedAt = new Date(); break;
-      case 'delivered': order.deliveredAt = new Date(); break;
-      case 'cancelled': order.cancelledAt = new Date(); break;
-      case 'reminder': order.reminderAt = new Date(); break;
+    // Update timestamp based on status
+    const timestampMap = {
+      'placed': 'placedAt',
+      'follow_up': 'followUpAt',
+      'accepted': 'acceptedAt',
+      'approved': 'approvedAt',
+      'ready_to_ship': 'shippedAt',
+      'courier_assigned': 'shippedAt',
+      'rejected': 'cancelledAt',
+      'cancelled': 'cancelledAt',
+      'reminder': 'reminderAt',
+      'delivered': 'deliveredAt'
+    };
+    
+    if (timestampMap[orderStatus]) {
+      order[timestampMap[orderStatus]] = new Date();
     }
     
+    // ========== FIX: Map user role to valid enum value ==========
     const userId = req.user?._id;
+    let userRoleMapped = userRole;
+    
+    // Map call_center_agent to call_center (valid enum value)
+    if (userRoleMapped === 'call_center_agent') {
+      userRoleMapped = 'call_center';
+    }
+    
+    // Map customer to user (valid enum value)
+    if (userRoleMapped === 'customer') {
+      userRoleMapped = 'user';
+    }
+    
+    // Create status note
     let statusNote = `Status updated from ${oldStatus} to ${orderStatus}`;
     
     if (orderStatus === 'cancelled' && cancellationReason) {
-      statusNote = cancellationReason;
+      statusNote = `Cancelled: ${cancellationReason}`;
+    }
+    
+    if (orderStatus === 'rejected' && rejectionReason) {
+      statusNote = `Rejected: ${rejectionReason}`;
     }
     
     if (orderStatus === 'delivered') {
@@ -3116,17 +3421,31 @@ const updateOrderStatus = async (req, res) => {
     }
     
     if (orderStatus === 'accepted') {
-      statusNote = 'Order accepted by call center';
+      statusNote = 'Order accepted';
+    }
+    
+    if (orderStatus === 'approved') {
+      statusNote = 'Order approved';
+    }
+    
+    if (orderStatus === 'ready_to_ship') {
+      statusNote = 'Order ready to ship';
+    }
+    
+    if (orderStatus === 'courier_assigned') {
+      statusNote = `Order assigned to ${courierService || 'courier'}`;
     }
     
     if (orderStatus === 'reminder') {
       statusNote = 'Reminder sent to customer';
     }
     
-    order.addStatusHistory(orderStatus, statusNote, userId, userRole);
+    // Add status history with mapped role
+    order.addStatusHistory(orderStatus, statusNote, userId, userRoleMapped);
     
     await order.save();
     
+    // Send email notifications
     if (oldStatus !== orderStatus) {
       if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
         try {
@@ -3145,6 +3464,7 @@ const updateOrderStatus = async (req, res) => {
       }
     }
     
+    // Prepare response message
     let responseMessage = `Order status updated to ${orderStatus}`;
     if (orderStatus === 'delivered' && order.paymentMethod === 'cod' && order.paymentStatus === 'paid') {
       responseMessage = `Order delivered and payment marked as Paid`;
@@ -3395,6 +3715,7 @@ const getAllOrders = async (req, res) => {
     const [orders, total] = await Promise.all([
       Order.find(query)
         .populate('userId', 'name email phone')
+        .populate('statusHistory.updatedBy', 'email name contactPerson')
         .sort(sortOption)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -3418,7 +3739,107 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+
+
+// controllers/orderController.js - Update getOrderStats
+
+// const getOrderStats = async (req, res) => {
+//   try {
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+    
+//     const thisMonth = new Date();
+//     thisMonth.setDate(1);
+//     thisMonth.setHours(0, 0, 0, 0);
+    
+//     const [
+//       totalOrders,
+//       pendingPayment,
+//       placedOrders,
+//       followUpOrders,
+//       acceptedOrders,
+//       approvedOrders,
+//       readyToShipOrders,
+//       courierAssignedOrders,
+//       rejectedOrders,
+//       processingOrders,
+//       shippedOrders,
+//       outForDeliveryOrders,
+//       deliveredOrders,
+//       cancelledOrders,
+//       reminderOrders,
+//       todayOrders,
+//       monthOrders,
+//       totalRevenue,
+//       monthRevenue
+//     ] = await Promise.all([
+//       Order.countDocuments(),
+//       Order.countDocuments({ paymentStatus: 'pending' }),
+//       Order.countDocuments({ orderStatus: 'placed' }),
+//       Order.countDocuments({ orderStatus: 'follow_up' }),
+//       Order.countDocuments({ orderStatus: 'accepted' }),
+//       Order.countDocuments({ orderStatus: 'approved' }),
+//       Order.countDocuments({ orderStatus: 'ready_to_ship' }),
+//       Order.countDocuments({ orderStatus: 'courier_assigned' }),
+//       Order.countDocuments({ orderStatus: 'rejected' }),
+//       Order.countDocuments({ orderStatus: 'processing' }),
+//       Order.countDocuments({ orderStatus: 'shipped' }),
+//       Order.countDocuments({ orderStatus: 'out_for_delivery' }),
+//       Order.countDocuments({ orderStatus: 'delivered' }),
+//       Order.countDocuments({ orderStatus: 'cancelled' }),
+//       Order.countDocuments({ orderStatus: 'reminder' }),
+//       Order.countDocuments({ createdAt: { $gte: today } }),
+//       Order.countDocuments({ createdAt: { $gte: thisMonth } }),
+//       Order.aggregate([{ $group: { _id: null, total: { $sum: '$total' } } }]),
+//       Order.aggregate([
+//         { $match: { createdAt: { $gte: thisMonth } } },
+//         { $group: { _id: null, total: { $sum: '$total' } } }
+//       ])
+//     ]);
+    
+//     const statusDistribution = await Order.aggregate([
+//       { $group: { _id: '$orderStatus', count: { $sum: 1 }, totalValue: { $sum: '$total' } } },
+//       { $sort: { count: -1 } }
+//     ]);
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         totalOrders,
+//         pendingPayment,
+//         placedOrders,
+//         followUpOrders,
+//         acceptedOrders,
+//         approvedOrders,
+//         readyToShipOrders,
+//         courierAssignedOrders,
+//         rejectedOrders,
+//         processingOrders,
+//         shippedOrders,
+//         outForDeliveryOrders,
+//         deliveredOrders,
+//         cancelledOrders,
+//         reminderOrders,
+//         todayOrders,
+//         monthOrders,
+//         totalRevenue: totalRevenue[0]?.total || 0,
+//         monthRevenue: monthRevenue[0]?.total || 0,
+//         statusDistribution
+//       }
+//     });
+    
+//   } catch (error) {
+//     console.error('Get order stats error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+// controllers/orderController.js - Updated getOrderStats (Moderator sees all)
+
 // ========== GET ORDER STATISTICS ==========
+// @desc    Get order statistics based on user role
+// @route   GET /api/orders/admin/stats
+// @access  Private (Admin/Moderator/Super Admin)
 const getOrderStats = async (req, res) => {
   try {
     const today = new Date();
@@ -3428,48 +3849,82 @@ const getOrderStats = async (req, res) => {
     thisMonth.setDate(1);
     thisMonth.setHours(0, 0, 0, 0);
     
+    const userRole = req.user?.role || 'admin';
+    
+    // ========== BUILD QUERY BASED ON ROLE ==========
+    let statusQuery = {};
+    
+    // Super Admin, Admin, Moderator: Can see all orders
+    if (['super_admin', 'admin', 'moderator'].includes(userRole)) {
+      statusQuery = {}; // No filter - see all orders
+    } 
+    // Call Center Agent: Can only see agent-specific statuses
+    else if (userRole === 'call_center_agent') {
+      statusQuery = {
+        orderStatus: { $in: ['follow_up', 'reminder', 'accepted', 'cancelled'] }
+      };
+    }
+    // Default: Only placed, follow_up, reminder, accepted
+    else {
+      statusQuery = {
+        orderStatus: { $in: ['placed', 'follow_up', 'reminder', 'accepted'] }
+      };
+    }
+    
+    // ========== GET ALL ORDER COUNTS ==========
     const [
       totalOrders,
       pendingPayment,
       placedOrders,
       followUpOrders,
+      reminderOrders,
       acceptedOrders,
+      approvedOrders,
+      readyToShipOrders,
+      courierAssignedOrders,
+      rejectedOrders,
       processingOrders,
       shippedOrders,
       outForDeliveryOrders,
       deliveredOrders,
       cancelledOrders,
-      reminderOrders,
       todayOrders,
       monthOrders,
       totalRevenue,
       monthRevenue
     ] = await Promise.all([
-      Order.countDocuments(),
-      Order.countDocuments({ paymentStatus: 'pending' }),
-      Order.countDocuments({ orderStatus: 'placed' }),
-      Order.countDocuments({ orderStatus: 'follow_up' }),
-      Order.countDocuments({ orderStatus: 'accepted' }),
-      Order.countDocuments({ orderStatus: 'processing' }),
-      Order.countDocuments({ orderStatus: 'shipped' }),
-      Order.countDocuments({ orderStatus: 'out_for_delivery' }),
-      Order.countDocuments({ orderStatus: 'delivered' }),
-      Order.countDocuments({ orderStatus: 'cancelled' }),
-      Order.countDocuments({ orderStatus: 'reminder' }),
-      Order.countDocuments({ createdAt: { $gte: today } }),
-      Order.countDocuments({ createdAt: { $gte: thisMonth } }),
-      Order.aggregate([{ $group: { _id: null, total: { $sum: '$total' } } }]),
+      Order.countDocuments(statusQuery),
+      Order.countDocuments({ ...statusQuery, paymentStatus: 'pending' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'placed' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'follow_up' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'reminder' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'accepted' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'approved' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'ready_to_ship' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'courier_assigned' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'rejected' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'processing' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'shipped' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'out_for_delivery' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'delivered' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'cancelled' }),
+      Order.countDocuments({ ...statusQuery, createdAt: { $gte: today } }),
+      Order.countDocuments({ ...statusQuery, createdAt: { $gte: thisMonth } }),
+      Order.aggregate([{ $match: statusQuery }, { $group: { _id: null, total: { $sum: '$total' } } }]),
       Order.aggregate([
-        { $match: { createdAt: { $gte: thisMonth } } },
+        { $match: { ...statusQuery, createdAt: { $gte: thisMonth } } },
         { $group: { _id: null, total: { $sum: '$total' } } }
       ])
     ]);
     
+    // ========== GET STATUS DISTRIBUTION ==========
     const statusDistribution = await Order.aggregate([
+      { $match: statusQuery },
       { $group: { _id: '$orderStatus', count: { $sum: 1 }, totalValue: { $sum: '$total' } } },
       { $sort: { count: -1 } }
     ]);
     
+    // ========== RESPONSE ==========
     res.json({
       success: true,
       data: {
@@ -3477,13 +3932,17 @@ const getOrderStats = async (req, res) => {
         pendingPayment,
         placedOrders,
         followUpOrders,
+        reminderOrders,
         acceptedOrders,
+        approvedOrders,
+        readyToShipOrders,
+        courierAssignedOrders,
+        rejectedOrders,
         processingOrders,
         shippedOrders,
         outForDeliveryOrders,
         deliveredOrders,
         cancelledOrders,
-        reminderOrders,
         todayOrders,
         monthOrders,
         totalRevenue: totalRevenue[0]?.total || 0,
@@ -3995,6 +4454,327 @@ const getPublicOrder = async (req, res) => {
   }
 };
 
+
+// controllers/orderController.js - Add these functions after the existing ones
+
+// ========== GET AGENT ORDERS ==========
+// @desc    Get orders for call center agent (follow_up, reminder, accepted, cancelled)
+// @route   GET /api/orders/agent/orders
+// @access  Private (Call Center Agent only)
+const getAgentOrders = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      orderStatus,
+      search,
+      sort = '-createdAt'
+    } = req.query;
+    
+    const query = {
+      orderStatus: { $in: ['follow_up', 'reminder', 'accepted', 'cancelled'] }
+    };
+    
+    if (orderStatus) {
+      query.orderStatus = orderStatus;
+    }
+    
+    // Search by order number or customer name/email/phone
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { orderNumber: searchRegex },  
+        { 'customerInfo.fullName': searchRegex },
+        { 'customerInfo.email': searchRegex },
+        { 'customerInfo.phone': searchRegex },
+        { 'customerInfo.division': searchRegex },
+        { 'customerInfo.city': searchRegex },
+        { 'customerInfo.zone': searchRegex },
+        { 'items.productName': searchRegex }
+      ];
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Sort options
+    let sortOption = {};
+    switch (sort) {
+      case 'createdAt_asc':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'createdAt_desc':
+        sortOption = { createdAt: -1 };
+        break;
+      case 'total_asc':
+        sortOption = { total: 1 };
+        break;
+      case 'total_desc':
+        sortOption = { total: -1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 };
+    }
+    
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .populate('userId', 'name email phone')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Order.countDocuments(query)
+    ]);
+    
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        limit: parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get agent orders error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ========== UPDATE AGENT ORDER STATUS ==========
+const updateAgentOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { orderStatus, cancellationReason, statusNote } = req.body;
+    
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    // Check if order is in agent-accessible statuses
+    if (!['follow_up', 'reminder', 'accepted', 'cancelled'].includes(order.orderStatus)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is not in agent-accessible status' 
+      });
+    }
+    
+    // If order is already cancelled or accepted, prevent further changes
+    if (order.orderStatus === 'cancelled') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is already rejected. No further changes allowed.' 
+      });
+    }
+    
+    if (order.orderStatus === 'accepted') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is already accepted. No further changes allowed.' 
+      });
+    }
+    
+    // Define allowed transitions for agent
+    const allowedTransitions = {
+      'follow_up': ['accepted', 'cancelled', 'reminder'],
+      'reminder': ['accepted', 'cancelled']
+    };
+    
+    const currentStatus = order.orderStatus;
+    
+    // Validate status transition
+    if (currentStatus !== orderStatus) {
+      const allowedNext = allowedTransitions[currentStatus] || [];
+      if (!allowedNext.includes(orderStatus)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid status transition from "${currentStatus}" to "${orderStatus}". Allowed: ${allowedNext.join(', ')}` 
+        });
+      }
+    }
+    
+    const oldStatus = order.orderStatus;
+    
+    // Handle cancellation
+    if (orderStatus === 'cancelled') {
+      if (!cancellationReason) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cancellation reason is required' 
+        });
+      }
+      order.cancelledAt = new Date();
+      order.cancellationReason = cancellationReason;
+      
+      // Restore stock for cancelled order
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { stockQuantity: item.quantity } }
+        );
+      }
+    }
+    
+    // Update order status
+    order.orderStatus = orderStatus;
+    
+    // Update timestamp based on status
+    switch(orderStatus) {
+      case 'follow_up':
+        order.followUpAt = new Date();
+        break;
+      case 'accepted':
+        order.acceptedAt = new Date();
+        break;
+      case 'cancelled':
+        order.cancelledAt = new Date();
+        break;
+      case 'reminder':
+        order.reminderAt = new Date();
+        break;
+    }
+    
+    // Add status history with note
+    const userId = req.user?._id;
+    let userRole = req.user?.role || 'call_center';
+    if (userRole === 'call_center_agent') {
+      userRole = 'call_center';
+    }
+    
+    // Build status note with optional note and cancellation reason
+    let statusNoteText = `Status updated from ${oldStatus} to ${orderStatus}`;
+    
+    if (orderStatus === 'cancelled' && cancellationReason) {
+      statusNoteText = `Rejected: ${cancellationReason}`;
+    }
+    
+    if (orderStatus === 'accepted') {
+      statusNoteText = 'Order accepted by call center agent';
+    }
+    
+    if (orderStatus === 'reminder') {
+      statusNoteText = 'Reminder set by call center agent';
+    }
+    
+    // Append custom note if provided
+    if (statusNote && statusNote.trim() !== '') {
+      statusNoteText += ` | Note: ${statusNote.trim()}`;
+    }
+    
+    order.addStatusHistory(orderStatus, statusNoteText, userId, userRole);
+    
+    await order.save();
+    
+    // Send email notification for status change
+    if (oldStatus !== orderStatus) {
+      if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+        try {
+          await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, orderStatus);
+          console.log('✅ Status update email sent to customer for order:', order.orderNumber);
+        } catch (emailError) {
+          console.error('❌ Status update email error:', emailError.message);
+        }
+      }
+
+      try {
+        await sendOrderNotificationToAdmin(order, 'status_update');
+        console.log('✅ Status update notification sent to admin for order:', order.orderNumber);
+      } catch (emailError) {
+        console.error('❌ Admin notification error on status update:', emailError.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: order,
+      message: `Order status updated to ${orderStatus}`
+    });
+    
+  } catch (error) {
+    console.error('Update agent order status error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+// ========== GET AGENT DASHBOARD DATA ==========
+// @desc    Get dashboard data for call center agent with month/year filter
+// @route   GET /api/orders/agent/dashboard
+// @access  Private (Call Center Agent only)
+const getAgentDashboard = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    
+    // Build date filter
+    let dateFilter = {};
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+      dateFilter = {
+        createdAt: { $gte: startDate, $lte: endDate }
+      };
+    } else {
+      // Default to current month
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      dateFilter = {
+        createdAt: { $gte: startDate, $lte: endDate }
+      };
+    }
+    
+    // Query for agent-relevant statuses
+    const agentStatuses = ['follow_up', 'reminder', 'accepted', 'cancelled'];
+    const query = {
+      orderStatus: { $in: agentStatuses },
+      ...dateFilter
+    };
+    
+    // Get all orders for stats
+    const allOrders = await Order.find(query);
+    
+    // Calculate stats
+    const stats = {
+      total: allOrders.length,
+      followUp: allOrders.filter(o => o.orderStatus === 'follow_up').length,
+      reminder: allOrders.filter(o => o.orderStatus === 'reminder').length,
+      accepted: allOrders.filter(o => o.orderStatus === 'accepted').length,
+      cancelled: allOrders.filter(o => o.orderStatus === 'cancelled').length
+    };
+    
+    // Get follow-up orders (sorted by newest first)
+    const followUpOrders = await Order.find({
+      orderStatus: 'follow_up',
+      ...dateFilter
+    })
+    .sort({ createdAt: -1 })
+    .limit(50);
+    
+    // Get reminder orders (sorted by newest first)
+    const reminderOrders = await Order.find({
+      orderStatus: 'reminder',
+      ...dateFilter
+    })
+    .sort({ createdAt: -1 })
+    .limit(50);
+    
+    res.json({
+      success: true,
+      stats,
+      followUpOrders,
+      reminderOrders,
+      filter: {
+        month: parseInt(month) || new Date().getMonth() + 1,
+        year: parseInt(year) || new Date().getFullYear()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get agent dashboard error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // ========== EXPORTS ==========
 module.exports = {
   createOrder,
@@ -4011,5 +4791,8 @@ module.exports = {
   createDeliveryOrder,
   getOrderTracking,
   trackOrderByPhone,
-  getPublicOrder
+  getPublicOrder,
+  getAgentOrders,        
+  updateAgentOrderStatus,
+  getAgentDashboard
 };
