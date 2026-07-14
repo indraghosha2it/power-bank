@@ -2445,6 +2445,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
+const OrderRestriction = require('../models/OrderRestriction');
 const { 
   sendOrderPlacedEmail, 
   sendOrderNotificationToAdmin,
@@ -2663,9 +2664,370 @@ const getClientDeviceInfoFromBody = (req) => {
   };
 };
 
+// ========== CHECK ORDER RESTRICTIONS ==========
+const checkOrderRestrictions = async (req, customerInfo) => {
+  try {
+    // Get IP address
+    const ipAddress = req.clientIP || 
+                      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                      req.headers['x-real-ip'] ||
+                      req.connection?.remoteAddress ||
+                      req.socket?.remoteAddress ||
+                      req.ip ||
+                      'unknown';
+    
+    // Clean up IP
+    let cleanIp = ipAddress;
+    if (cleanIp === '::1' || cleanIp === '::ffff:127.0.0.1') {
+      cleanIp = '127.0.0.1';
+    }
+    if (cleanIp && cleanIp.startsWith('::ffff:')) {
+      cleanIp = cleanIp.replace('::ffff:', '');
+    }
+    
+    const restrictions = await OrderRestriction.getRestrictions();
+    const violations = [];
+
+    // ========== CHECK IP BLOCKING ==========
+    const isIPBlocked = restrictions.ipRestrictions.blockedIPs.some(b => b.ip === cleanIp);
+    if (isIPBlocked) {
+      violations.push({
+        type: 'ip_blocked',
+        message: 'Your IP address has been blocked from placing orders'
+      });
+    }
+
+    // ========== CHECK IP TIME INTERVAL ==========
+    if (restrictions.ipRestrictions.timeInterval.enabled) {
+      const timeValue = restrictions.ipRestrictions.timeInterval.value;
+      const timeUnit = restrictions.ipRestrictions.timeInterval.unit;
+      const timeInMs = timeUnit === 'min' ? timeValue * 60 * 1000 : timeValue * 60 * 60 * 1000;
+      
+      const recentOrder = await Order.findOne({
+        'deviceInfo.ipAddress': cleanIp,
+        createdAt: { $gte: new Date(Date.now() - timeInMs) }
+      }).sort({ createdAt: -1 });
+
+      if (recentOrder) {
+        const timeLeft = Math.ceil((timeInMs - (Date.now() - new Date(recentOrder.createdAt).getTime())) / (timeUnit === 'min' ? 60 * 1000 : 60 * 60 * 1000));
+        violations.push({
+          type: 'ip_time_interval',
+          message: `You must wait ${timeLeft} more ${timeUnit === 'min' ? 'minute(s)' : 'hour(s)'} before placing another order from this IP`
+        });
+      }
+    }
+
+    // ========== CHECK PHONE BLOCKING ==========
+    if (customerInfo?.phone) {
+      const isPhoneBlocked = restrictions.phoneRestrictions.blockedPhones.some(b => b.phone === customerInfo.phone);
+      if (isPhoneBlocked) {
+        violations.push({
+          type: 'phone_blocked',
+          message: 'This phone number has been blocked from placing orders'
+        });
+      }
+
+      // ========== CHECK PHONE TIME INTERVAL ==========
+      if (restrictions.phoneRestrictions.timeInterval.enabled) {
+        const timeValue = restrictions.phoneRestrictions.timeInterval.value;
+        const timeUnit = restrictions.phoneRestrictions.timeInterval.unit;
+        const timeInMs = timeUnit === 'min' ? timeValue * 60 * 1000 : timeValue * 60 * 60 * 1000;
+        
+        const recentOrder = await Order.findOne({
+          'customerInfo.phone': customerInfo.phone,
+          createdAt: { $gte: new Date(Date.now() - timeInMs) }
+        }).sort({ createdAt: -1 });
+
+        if (recentOrder) {
+          const timeLeft = Math.ceil((timeInMs - (Date.now() - new Date(recentOrder.createdAt).getTime())) / (timeUnit === 'min' ? 60 * 1000 : 60 * 60 * 1000));
+          violations.push({
+            type: 'phone_time_interval',
+            message: `You must wait ${timeLeft} more ${timeUnit === 'min' ? 'minute(s)' : 'hour(s)'} before placing another order with this phone number`
+          });
+        }
+      }
+    }
+
+    // ========== CHECK EMAIL BLOCKING ==========
+    if (customerInfo?.email) {
+      const isEmailBlocked = restrictions.emailRestrictions.blockedEmails.some(b => b.email === customerInfo.email);
+      if (isEmailBlocked) {
+        violations.push({
+          type: 'email_blocked',
+          message: 'This email address has been blocked from placing orders'
+        });
+      }
+    }
+
+    return {
+      allowed: violations.length === 0,
+      violations,
+      ipAddress: cleanIp
+    };
+  } catch (error) {
+    console.error('Check order restrictions error:', error);
+    // If there's an error checking restrictions, allow the order to proceed
+    // but log the error
+    return {
+      allowed: true,
+      violations: [],
+      ipAddress: 'unknown'
+    };
+  }
+};
+
 // ========== CREATE ORDER ==========
 // controllers/orderController.js - Update createOrder function
 
+// const createOrder = async (req, res) => {
+//   try {
+//     const {
+//       items,
+//       subtotal,
+//       shippingCost,
+//       discount,
+//       total,
+//       paymentMethod,
+//       customerInfo,
+//       couponCode,
+//       couponDiscount,
+//       freeShipping,
+//       orderStatus = 'placed',
+//       saveOrder = true,
+//       clientDeviceInfo = {}
+//     } = req.body;
+
+//     const userId = req.user?._id;
+    
+//     // IMPORTANT: Get sessionId from multiple sources
+//     let sessionId = req.headers['x-session-id'] || 
+//                     req.cookies?.sessionId || 
+//                     req.body.sessionId || 
+//                     null;
+    
+//     // If no sessionId and user is not logged in, generate one
+//     if (!sessionId && !userId) {
+//       sessionId = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+//       console.log('🆕 Generated new session ID for guest:', sessionId);
+//     }
+
+//     // Log session info for debugging
+//     console.log('📝 Order Creation - Session Info:', {
+//       userId: userId || 'guest',
+//       sessionId: sessionId || 'none',
+//       hasSessionHeader: !!req.headers['x-session-id'],
+//       hasCookie: !!req.cookies?.sessionId
+//     });
+
+//     // Validate required fields
+//     if (!items || items.length === 0) {
+//       return res.status(400).json({ success: false, error: 'No items in order' });
+//     }
+
+//     if (!customerInfo || !customerInfo.fullName || !customerInfo.phone || !customerInfo.address || !customerInfo.division) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Customer information is incomplete. Full name, phone, address, and division are required.' 
+//       });
+//     }
+
+//     if (!paymentMethod) {
+//       return res.status(400).json({ success: false, error: 'Payment method is required' });
+//     }
+
+//     // Process items
+//     const processedItems = items.map(item => {
+//       const hasColors = item.colors && item.colors.length > 0;
+//       let totalQuantity = item.quantity || 0;
+//       if (hasColors) {
+//         totalQuantity = item.colors.reduce((sum, color) => sum + (color.quantity || 0), 0);
+//       }
+      
+//       return {
+//         productId: item.productId,
+//         productName: item.productName,
+//         productSlug: item.productSlug,
+//         image: item.image,
+//         regularPrice: item.regularPrice,
+//         discountPrice: item.discountPrice || 0,
+//         quantity: totalQuantity,
+//         stockQuantity: item.stockQuantity || 0,
+//         unit: item.unit || 'pcs',
+//         selectedColor: item.selectedColor || null,
+//         colors: item.colors || []
+//       };
+//     });
+
+//     // Validate stock
+//     for (const item of processedItems) {
+//       const product = await Product.findById(item.productId);
+//       if (!product) {
+//         return res.status(404).json({ success: false, error: `Product ${item.productName} not found` });
+//       }
+//       if (product.stockQuantity < item.quantity) {
+//         return res.status(400).json({ 
+//           success: false, 
+//           error: `Insufficient stock for ${product.productName}. Available: ${product.stockQuantity}` 
+//         });
+//       }
+//     }
+
+//     // Get device info
+//     const clientInfo = getClientDeviceInfoFromBody(req);
+//     const deviceInfo = getAccurateDeviceInfo(req, clientInfo);
+
+//     // For online payment, prepare order data without saving
+//     if (paymentMethod === 'online' && !saveOrder) {
+//       const orderData = {
+//         userId: userId || null,
+//         sessionId: userId ? null : sessionId,
+//         items: processedItems,
+//         customerInfo: {
+//           fullName: customerInfo.fullName,
+//           email: customerInfo.email || '',
+//           phone: customerInfo.phone,
+//           division: customerInfo.division,
+//           address: customerInfo.address,
+//           city: customerInfo.city,
+//           zone: customerInfo.zone,
+//           area: customerInfo.area || '',
+//           zipCode: customerInfo.zipCode || '',
+//           country: customerInfo.country || 'Bangladesh',
+//           note: customerInfo.note || ''
+//         },
+//         subtotal,
+//         shippingCost,
+//         discount: discount || 0,
+//         total,
+//         paymentMethod,
+//         paymentStatus: 'pending',
+//         orderStatus: 'placed',
+//         couponCode: couponCode || null,
+//         couponDiscount: couponDiscount || 0,
+//         freeShipping: freeShipping || false,
+//         orderDate: new Date(),
+//         deviceInfo: deviceInfo
+//       };
+      
+//       return res.status(200).json({
+//         success: true,
+//         data: orderData,
+//         message: 'Order data prepared',
+//         sessionId: sessionId // Return session ID to frontend
+//       });
+//     }
+
+//     // Create order with session ID
+//     const order = new Order({
+//       userId: userId || null,
+//       sessionId: userId ? null : sessionId, // Store sessionId for guest users
+//       items: processedItems,
+//       customerInfo: {
+//         fullName: customerInfo.fullName,
+//         email: customerInfo.email || '',
+//         phone: customerInfo.phone,
+//         division: customerInfo.division,
+//         address: customerInfo.address,
+//         city: customerInfo.city,
+//         zone: customerInfo.zone,
+//         area: customerInfo.area || '',
+//         zipCode: customerInfo.zipCode || '',
+//         country: customerInfo.country || 'Bangladesh',
+//         note: customerInfo.note || ''
+//       },
+//       subtotal,
+//       shippingCost,
+//       discount: discount || 0,
+//       total,
+//       paymentMethod,
+//       paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+//       orderStatus: orderStatus === 'pending' ? 'placed' : orderStatus,
+//       couponCode: couponCode || null,
+//       couponDiscount: couponDiscount || 0,
+//       freeShipping: freeShipping || false,
+//       orderDate: new Date(),
+//       placedAt: new Date(),
+//       deviceInfo: deviceInfo
+//     });
+
+//     await order.save();
+
+//     console.log('✅ Order saved with sessionId:', order.sessionId || 'none');
+
+//     // Update product stock
+//     for (const item of processedItems) {
+//       await Product.findByIdAndUpdate(
+//         item.productId,
+//         { $inc: { stockQuantity: -item.quantity, purchaseCount: item.quantity } }
+//       );
+//     }
+
+//     // ========== CLEAR CART ==========
+//     // IMPORTANT: Clear cart using the correct identifier
+//     if (userId) {
+//       // Logged in user - clear by userId
+//       await Cart.findOneAndDelete({ userId });
+//       console.log('🗑️ Cart cleared for user:', userId);
+//     } else if (sessionId) {
+//       // Guest user - clear by sessionId
+//       const deletedCart = await Cart.findOneAndDelete({ sessionId });
+//       console.log('🗑️ Cart cleared for session:', sessionId, deletedCart ? '✅' : '❌ Not found');
+//     } else {
+//       console.log('⚠️ No userId or sessionId to clear cart');
+//     }
+
+//     // Record coupon usage
+//     if (couponCode) {
+//       try {
+//         const coupon = await Coupon.findOne({ couponCode: couponCode.toUpperCase() });
+//         if (coupon) {
+//           coupon.totalUsedCount = (coupon.totalUsedCount || 0) + 1;
+//           coupon.usageRecords = coupon.usageRecords || [];
+//           coupon.usageRecords.push({
+//             userId: userId || null,
+//             orderId: order._id,
+//             usedAt: new Date(),
+//             discountAmount: couponDiscount || discount
+//           });
+//           await coupon.save();
+//         }
+//       } catch (couponError) {
+//         console.error('Error recording coupon usage:', couponError);
+//       }
+//     }
+
+//     // Send emails
+//     if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+//       try {
+//         await sendOrderPlacedEmail(order, order.customerInfo.email);
+//         console.log('✅ Order placed email sent to customer:', order.customerInfo.email);
+//       } catch (emailError) {
+//         console.error('❌ Customer email error:', emailError.message);
+//       }
+//     }
+
+//     try {
+//       await sendOrderNotificationToAdmin(order, 'new');
+//       console.log('✅ Admin notification sent for order:', order.orderNumber);
+//     } catch (emailError) {
+//       console.error('❌ Admin email error:', emailError.message);
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       data: order,
+//       orderId: order._id,
+//       sessionId: sessionId, // Return session ID to frontend
+//       message: 'Order placed successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('Create order error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+// ========== CREATE ORDER ==========
 const createOrder = async (req, res) => {
   try {
     const {
@@ -2686,19 +3048,17 @@ const createOrder = async (req, res) => {
 
     const userId = req.user?._id;
     
-    // IMPORTANT: Get sessionId from multiple sources
+    // Get sessionId from multiple sources
     let sessionId = req.headers['x-session-id'] || 
                     req.cookies?.sessionId || 
                     req.body.sessionId || 
                     null;
     
-    // If no sessionId and user is not logged in, generate one
     if (!sessionId && !userId) {
       sessionId = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       console.log('🆕 Generated new session ID for guest:', sessionId);
     }
 
-    // Log session info for debugging
     console.log('📝 Order Creation - Session Info:', {
       userId: userId || 'guest',
       sessionId: sessionId || 'none',
@@ -2720,6 +3080,25 @@ const createOrder = async (req, res) => {
 
     if (!paymentMethod) {
       return res.status(400).json({ success: false, error: 'Payment method is required' });
+    }
+
+    // ========== CHECK ORDER RESTRICTIONS (FRAUD DETECTION) ==========
+    const restrictionCheck = await checkOrderRestrictions(req, customerInfo);
+    
+    if (!restrictionCheck.allowed) {
+      console.log('🚫 Order restricted:', {
+        customer: customerInfo.fullName,
+        phone: customerInfo.phone,
+        ip: restrictionCheck.ipAddress,
+        violations: restrictionCheck.violations
+      });
+      
+      return res.status(403).json({
+        success: false,
+        error: restrictionCheck.violations[0].message,
+        violations: restrictionCheck.violations,
+        restrictionType: restrictionCheck.violations[0].type
+      });
     }
 
     // Process items
@@ -2793,21 +3172,22 @@ const createOrder = async (req, res) => {
         couponDiscount: couponDiscount || 0,
         freeShipping: freeShipping || false,
         orderDate: new Date(),
-        deviceInfo: deviceInfo
+        deviceInfo: deviceInfo,
+        restrictionViolation: 'none'
       };
       
       return res.status(200).json({
         success: true,
         data: orderData,
         message: 'Order data prepared',
-        sessionId: sessionId // Return session ID to frontend
+        sessionId: sessionId
       });
     }
 
     // Create order with session ID
     const order = new Order({
       userId: userId || null,
-      sessionId: userId ? null : sessionId, // Store sessionId for guest users
+      sessionId: userId ? null : sessionId,
       items: processedItems,
       customerInfo: {
         fullName: customerInfo.fullName,
@@ -2834,7 +3214,8 @@ const createOrder = async (req, res) => {
       freeShipping: freeShipping || false,
       orderDate: new Date(),
       placedAt: new Date(),
-      deviceInfo: deviceInfo
+      deviceInfo: deviceInfo,
+      restrictionViolation: 'none' // All restrictions passed
     });
 
     await order.save();
@@ -2849,18 +3230,13 @@ const createOrder = async (req, res) => {
       );
     }
 
-    // ========== CLEAR CART ==========
-    // IMPORTANT: Clear cart using the correct identifier
+    // Clear cart
     if (userId) {
-      // Logged in user - clear by userId
       await Cart.findOneAndDelete({ userId });
       console.log('🗑️ Cart cleared for user:', userId);
     } else if (sessionId) {
-      // Guest user - clear by sessionId
       const deletedCart = await Cart.findOneAndDelete({ sessionId });
       console.log('🗑️ Cart cleared for session:', sessionId, deletedCart ? '✅' : '❌ Not found');
-    } else {
-      console.log('⚠️ No userId or sessionId to clear cart');
     }
 
     // Record coupon usage
@@ -2904,7 +3280,7 @@ const createOrder = async (req, res) => {
       success: true,
       data: order,
       orderId: order._id,
-      sessionId: sessionId, // Return session ID to frontend
+      sessionId: sessionId,
       message: 'Order placed successfully'
     });
 
@@ -4794,5 +5170,6 @@ module.exports = {
   getPublicOrder,
   getAgentOrders,        
   updateAgentOrderStatus,
-  getAgentDashboard
+  getAgentDashboard,
+  checkOrderRestrictions
 };

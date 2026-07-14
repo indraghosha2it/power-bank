@@ -1155,6 +1155,11 @@ const orderSchema = new mongoose.Schema({
     type: String, 
     default: '' 
   },
+  restrictionViolation: {
+  type: String,
+  enum: ['ip_blocked', 'phone_blocked', 'email_blocked', 'ip_time_interval', 'phone_time_interval', 'none'],
+  default: 'none'
+},
   
   // Metadata
   metadata: { 
