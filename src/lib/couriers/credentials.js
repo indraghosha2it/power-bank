@@ -1,10 +1,10 @@
-const Courier = require('../models/Courier');
-const { encryptJson, decryptJson } = require('./credentialCrypto');
+const Courier = require('../../models/Courier');
+const { encryptJson, decryptJson } = require('../credentialCrypto');
 
 const courierCredentialFields = {
   pathao: ['clientId', 'clientSecret', 'username', 'password'],
   steadfast: ['apiKey', 'secretKey'],
-  redx: ['phone', 'password']
+  redx: ['phone', 'password','apiToken']
 };
 
 async function getCourierDocBySlug(slug) {

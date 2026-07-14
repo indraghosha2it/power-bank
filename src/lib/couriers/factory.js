@@ -1,10 +1,6 @@
-// SmartBuy-BD-backend/lib/couriers/courierFactory.js
-
-const PathaoAdapter = require('./pathaoAdapter');
-const SteadfastAdapter = require('./steadfastAdapter');
-
-// Create a RedX adapter if needed
-// const RedXAdapter = require('./redxAdapter');
+const PathaoAdapter = require('./adapters/PathaoAdapter');
+const SteadfastAdapter = require('./adapters/SteadfastAdapter');
+const RedxAdapter = require('./adapters/RedxAdapter');
 
 /**
  * Create a courier adapter instance based on slug
@@ -15,8 +11,8 @@ function createCourierAdapter(slug, creds, storeConfig) {
       return new PathaoAdapter(creds, storeConfig);
     case 'steadfast':
       return new SteadfastAdapter(creds, storeConfig);
-    // case 'redx':
-    //   return new RedXAdapter(creds, storeConfig);
+    case 'redx':
+      return new RedxAdapter(creds, storeConfig);
     default:
       throw new Error(`Unsupported courier: ${slug}`);
   }
@@ -54,19 +50,10 @@ async function cancelCourierOrder(slug, creds, storeConfig, courierOrderId) {
   return await adapter.cancelOrder(courierOrderId);
 }
 
-/**
- * Get delivery rates from a courier
- */
-async function getCourierRates(slug, creds, storeConfig, orderData) {
-  const adapter = createCourierAdapter(slug, creds, storeConfig);
-  return await adapter.getRates(orderData);
-}
-
 module.exports = {
   createCourierAdapter,
   testCourierConnection,
   createCourierOrder,
   getCourierTracking,
-  cancelCourierOrder,
-  getCourierRates
+  cancelCourierOrder
 };

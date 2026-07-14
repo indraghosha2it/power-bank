@@ -2446,6 +2446,8 @@ const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
 const OrderRestriction = require('../models/OrderRestriction');
+const { getCourierIntegration } = require('../lib/couriers/credentials');
+const { createCourierOrder, getCourierTracking } = require('../lib/couriers/factory');
 const { 
   sendOrderPlacedEmail, 
   sendOrderNotificationToAdmin,
@@ -4502,6 +4504,114 @@ const updateOrder = async (req, res) => {
 };
 
 // ========== CREATE DELIVERY ORDER ==========
+// const createDeliveryOrder = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { courierSlug, deliveryNote, weight } = req.body;
+    
+//     if (!courierSlug) {
+//       return res.status(400).json({ success: false, error: 'Courier slug is required' });
+//     }
+    
+//     const order = await Order.findById(id);
+//     if (!order) {
+//       return res.status(404).json({ success: false, error: 'Order not found' });
+//     }
+    
+//     if (order.deliveryService && order.deliveryService.courierOrderId) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order already has a delivery service assigned' 
+//       });
+//     }
+    
+//     if (!['accepted', 'processing'].includes(order.orderStatus)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: `Order status is ${order.orderStatus}. Only 'Accepted' or 'Processing' orders can create delivery.` 
+//       });
+//     }
+    
+//     const { getCourierIntegration } = require('../lib/courierCredentials');
+//     const integration = await getCourierIntegration(courierSlug);
+    
+//     if (!integration || !integration.creds || !integration.apiEnabled) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Courier is not configured or disabled' 
+//       });
+//     }
+    
+//     const orderData = {
+//       ...order.toObject(),
+//       orderNumber: order.orderNumber || `ORD-${order._id.toString().slice(-8)}`,
+//       items: order.items.map(item => ({
+//         ...item,
+//         weight: weight ? weight / order.items.length : 0.5
+//       }))
+//     };
+    
+//     const { createCourierOrder } = require('../lib/couriers/factory');
+//     const result = await createCourierOrder(
+//       courierSlug,
+//       integration.creds,
+//       integration.storeConfig,
+//       orderData
+//     );
+    
+//     if (!result.success) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: result.message || 'Failed to create delivery order' 
+//       });
+//     }
+    
+//     order.deliveryService = {
+//       courierId: integration.id,
+//       courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
+//       courierSlug: courierSlug,
+//       trackingNumber: result.trackingNumber,
+//       trackingUrl: result.trackingUrl,
+//       courierOrderId: result.courierOrderId,
+//       courierResponse: result.fullResponse,
+//       deliveryStatus: 'processing',
+//       labelUrl: result.labelUrl || '',
+//       invoiceUrl: result.invoiceUrl || '',
+//       deliveryNote: deliveryNote || '',
+//       weight: weight || 0.5,
+//       deliveryStatusHistory: [
+//         {
+//           status: 'processing',
+//           message: `Order created with ${courierSlug} courier service`,
+//           timestamp: new Date()
+//         }
+//       ]
+//     };
+    
+//     order.trackingNumber = result.trackingNumber;
+//     order.updateOrderStatus('shipped', 'Order shipped via courier', req.user?._id, req.user?.role || 'admin');
+    
+//     await order.save();
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         order,
+//         deliveryResult: result
+//       },
+//       message: `Delivery order created successfully with ${courierSlug}`
+//     });
+//   } catch (error) {
+//     console.error('Create delivery order error:', error);
+//     res.status(500).json({ 
+//       success: false, 
+//       error: error.message || 'Failed to create delivery order' 
+//     });
+//   }
+// };
+
+// ========== CREATE DELIVERY ORDER - UPDATED TO ALLOW READY_TO_SHIP ==========
+// ========== CREATE DELIVERY ORDER - UPDATED TO ALLOW READY_TO_SHIP ==========
 const createDeliveryOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -4516,6 +4626,15 @@ const createDeliveryOrder = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
     
+    // ========== CHECK IF ORDER IS CANCELLED ==========
+    if (order.orderStatus === 'cancelled') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is cancelled. Cannot create delivery.' 
+      });
+    }
+    
+    // ========== CHECK IF ORDER ALREADY HAS DELIVERY ==========
     if (order.deliveryService && order.deliveryService.courierOrderId) {
       return res.status(400).json({ 
         success: false, 
@@ -4523,14 +4642,16 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    if (!['accepted', 'processing'].includes(order.orderStatus)) {
+    // ========== ALLOW READY_TO_SHIP, ACCEPTED, AND PROCESSING ==========
+    const allowedStatuses = ['accepted', 'processing', 'ready_to_ship'];
+    if (!allowedStatuses.includes(order.orderStatus)) {
       return res.status(400).json({ 
         success: false, 
-        error: `Order status is ${order.orderStatus}. Only 'Accepted' or 'Processing' orders can create delivery.` 
+        error: `Order status is ${order.orderStatus}. Only 'Accepted', 'Processing', or 'Ready to Ship' orders can create delivery.` 
       });
     }
     
-    const { getCourierIntegration } = require('../lib/courierCredentials');
+    // ========== GET COURIER INTEGRATION ==========
     const integration = await getCourierIntegration(courierSlug);
     
     if (!integration || !integration.creds || !integration.apiEnabled) {
@@ -4540,6 +4661,7 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
+    // ========== PREPARE ORDER DATA ==========
     const orderData = {
       ...order.toObject(),
       orderNumber: order.orderNumber || `ORD-${order._id.toString().slice(-8)}`,
@@ -4549,7 +4671,7 @@ const createDeliveryOrder = async (req, res) => {
       }))
     };
     
-    const { createCourierOrder } = require('../lib/couriers/courierFactory');
+    // ========== CREATE DELIVERY ORDER WITH COURIER ==========
     const result = await createCourierOrder(
       courierSlug,
       integration.creds,
@@ -4564,6 +4686,7 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
+    // ========== UPDATE ORDER WITH DELIVERY INFO ==========
     order.deliveryService = {
       courierId: integration.id,
       courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
@@ -4580,14 +4703,23 @@ const createDeliveryOrder = async (req, res) => {
       deliveryStatusHistory: [
         {
           status: 'processing',
-          message: `Order created with ${courierSlug} courier service`,
+          message: `Delivery order created with ${courierSlug} courier service`,
           timestamp: new Date()
         }
       ]
     };
     
+    // ========== UPDATE ORDER STATUS ==========
     order.trackingNumber = result.trackingNumber;
-    order.updateOrderStatus('shipped', 'Order shipped via courier', req.user?._id, req.user?.role || 'admin');
+    order.orderStatus = 'processing';
+    order.processingAt = new Date();
+    
+    order.addStatusHistory(
+      'processing', 
+      `Order assigned to ${courierSlug} courier for delivery`,
+      req.user?._id,
+      req.user?.role || 'admin'
+    );
     
     await order.save();
     
@@ -4600,7 +4732,7 @@ const createDeliveryOrder = async (req, res) => {
       message: `Delivery order created successfully with ${courierSlug}`
     });
   } catch (error) {
-    console.error('Create delivery order error:', error);
+    console.error('❌ Create delivery order error:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to create delivery order' 
@@ -4627,7 +4759,7 @@ const getOrderTracking = async (req, res) => {
     
     const { courierSlug, trackingNumber } = order.deliveryService;
     
-    const { getCourierIntegration } = require('../lib/courierCredentials');
+    const { getCourierIntegration } = require('../lib/credentials');
     const integration = await getCourierIntegration(courierSlug);
     
     if (!integration || !integration.creds) {
@@ -4637,7 +4769,7 @@ const getOrderTracking = async (req, res) => {
       });
     }
     
-    const { getCourierTracking } = require('../lib/couriers/courierFactory');
+    const { getCourierTracking } = require('../lib/couriers/factory');
     const result = await getCourierTracking(
       courierSlug,
       integration.creds,
