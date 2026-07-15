@@ -3,7 +3,7 @@ const Order = require('../models/Order');
 const { 
   saveCourierCredentials, 
   getCourierIntegration 
-} = require('../lib/courierCredentials');
+} = require('../lib/couriers/credentials');
 const { 
   testCourierConnection,
   createCourierOrder,

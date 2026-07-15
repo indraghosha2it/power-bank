@@ -575,93 +575,157 @@ class PathaoAdapter extends CourierAdapter {
 
   // ========================================================================
 
-  async createOrder(orderData) {
-    try {
-      console.log('📦 Creating Pathao order...');
+  // async createOrder(orderData) {
+  //   try {
+  //     console.log('📦 Creating Pathao order...');
 
-      const token = await this.getAccessToken();
-      const storeId = this.storeConfig.pathaoStoreId || this.creds.storeId;
+  //     const token = await this.getAccessToken();
+  //     const storeId = this.storeConfig.pathaoStoreId || this.creds.storeId;
 
-      if (!storeId) {
-        throw new Error('Pathao store_id is required');
-      }
+  //     if (!storeId) {
+  //       throw new Error('Pathao store_id is required');
+  //     }
 
-      const pathaoOrderData = await this.formatOrderData(orderData, storeId);
-      console.log('📤 Pathao API request:', JSON.stringify(pathaoOrderData, null, 2));
+  //     const pathaoOrderData = await this.formatOrderData(orderData, storeId);
+  //     console.log('📤 Pathao API request:', JSON.stringify(pathaoOrderData, null, 2));
 
-      const response = await fetch(`${PATHAO_API_BASE}/aladdin/api/v1/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(pathaoOrderData),
-      });
+  //     const response = await fetch(`${PATHAO_API_BASE}/aladdin/api/v1/orders`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${token}`,
+  //       },
+  //       body: JSON.stringify(pathaoOrderData),
+  //     });
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      // ========== IMPROVED ERROR HANDLING ==========
-      if (!response.ok) {
-        console.error('❌ Pathao error response:', JSON.stringify(data, null, 2));
+  //     // ========== IMPROVED ERROR HANDLING ==========
+  //     if (!response.ok) {
+  //       console.error('❌ Pathao error response:', JSON.stringify(data, null, 2));
 
-        let errorMessage = 'Pathao order creation failed';
+  //       let errorMessage = 'Pathao order creation failed';
 
-        if (data.errors) {
-          if (typeof data.errors === 'object') {
-            const errorMessages = [];
-            for (const [field, messages] of Object.entries(data.errors)) {
-              if (Array.isArray(messages)) {
-                errorMessages.push(`${field}: ${messages.join(', ')}`);
-              } else if (typeof messages === 'string') {
-                errorMessages.push(`${field}: ${messages}`);
-              } else if (typeof messages === 'object') {
-                for (const [subField, subMessages] of Object.entries(messages)) {
-                  if (Array.isArray(subMessages)) {
-                    errorMessages.push(`${field}.${subField}: ${subMessages.join(', ')}`);
-                  } else {
-                    errorMessages.push(`${field}.${subField}: ${subMessages}`);
-                  }
-                }
-              }
-            }
-            errorMessage = `Pathao API errors: ${errorMessages.join(', ')}`;
-          } else if (typeof data.errors === 'string') {
-            errorMessage = `Pathao API error: ${data.errors}`;
-          } else {
-            errorMessage = `Pathao API error: ${JSON.stringify(data.errors)}`;
-          }
-        } else if (data.message) {
-          errorMessage = `Pathao API error: ${data.message}`;
-        } else if (data.error) {
-          errorMessage = `Pathao API error: ${data.error}`;
-        }
+  //       if (data.errors) {
+  //         if (typeof data.errors === 'object') {
+  //           const errorMessages = [];
+  //           for (const [field, messages] of Object.entries(data.errors)) {
+  //             if (Array.isArray(messages)) {
+  //               errorMessages.push(`${field}: ${messages.join(', ')}`);
+  //             } else if (typeof messages === 'string') {
+  //               errorMessages.push(`${field}: ${messages}`);
+  //             } else if (typeof messages === 'object') {
+  //               for (const [subField, subMessages] of Object.entries(messages)) {
+  //                 if (Array.isArray(subMessages)) {
+  //                   errorMessages.push(`${field}.${subField}: ${subMessages.join(', ')}`);
+  //                 } else {
+  //                   errorMessages.push(`${field}.${subField}: ${subMessages}`);
+  //                 }
+  //               }
+  //             }
+  //           }
+  //           errorMessage = `Pathao API errors: ${errorMessages.join(', ')}`;
+  //         } else if (typeof data.errors === 'string') {
+  //           errorMessage = `Pathao API error: ${data.errors}`;
+  //         } else {
+  //           errorMessage = `Pathao API error: ${JSON.stringify(data.errors)}`;
+  //         }
+  //       } else if (data.message) {
+  //         errorMessage = `Pathao API error: ${data.message}`;
+  //       } else if (data.error) {
+  //         errorMessage = `Pathao API error: ${data.error}`;
+  //       }
 
-        if (data.code === 422 || data.status === 422) {
-          errorMessage = `Validation Error: ${errorMessage}`;
-        }
+  //       if (data.code === 422 || data.status === 422) {
+  //         errorMessage = `Validation Error: ${errorMessage}`;
+  //       }
 
-        throw new Error(errorMessage);
-      }
+  //       throw new Error(errorMessage);
+  //     }
 
-      const orderInfo = data.data || data;
-      return {
-        success: true,
-        courierOrderId: orderInfo.id || orderInfo.order_id,
-        trackingNumber: orderInfo.tracking_number || orderInfo.consignment_id || orderInfo.id,
-        trackingUrl: orderInfo.tracking_url || `https://pathao.com/bd/customer-tracking/?consignment_id=${orderInfo.consignment_id}`,
-        labelUrl: orderInfo.label_url || '',
-        invoiceUrl: orderInfo.invoice_url || '',
-        fullResponse: data,
-        message: 'Order created successfully with Pathao'
-      };
-    } catch (error) {
-      console.error('❌ Pathao order creation error:', error);
-      return {
-        success: false,
-        message: error.message
-      };
+  //     const orderInfo = data.data || data;
+  //     return {
+  //       success: true,
+  //       courierOrderId: orderInfo.id || orderInfo.order_id,
+  //       trackingNumber: orderInfo.tracking_number || orderInfo.consignment_id || orderInfo.id,
+  //       trackingUrl: orderInfo.tracking_url || `https://pathao.com/bd/customer-tracking/?consignment_id=${orderInfo.consignment_id}`,
+  //       labelUrl: orderInfo.label_url || '',
+  //       invoiceUrl: orderInfo.invoice_url || '',
+  //       fullResponse: data,
+  //       message: 'Order created successfully with Pathao'
+  //     };
+  //   } catch (error) {
+  //     console.error('❌ Pathao order creation error:', error);
+  //     return {
+  //       success: false,
+  //       message: error.message
+  //     };
+  //   }
+  // }
+// PathaoAdapter.js - Update the createOrder method
+
+async createOrder(orderData) {
+  try {
+    console.log('📦 Creating Pathao order...');
+
+    const token = await this.getAccessToken();
+    const storeId = this.storeConfig.pathaoStoreId || this.creds.storeId;
+
+    if (!storeId) {
+      throw new Error('Pathao store_id is required');
     }
+
+    const pathaoOrderData = await this.formatOrderData(orderData, storeId);
+    console.log('📤 Pathao API request:', JSON.stringify(pathaoOrderData, null, 2));
+
+    const response = await fetch(`${PATHAO_API_BASE}/aladdin/api/v1/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(pathaoOrderData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ Pathao error response:', JSON.stringify(data, null, 2));
+      // ... error handling
+    }
+
+    const orderInfo = data.data || data;
+    const consignmentId = orderInfo.consignment_id || orderInfo.id || orderInfo.order_id;
+    
+    // ========== GET CUSTOMER PHONE FROM ORDER DATA ==========
+    const customerPhone = orderData.customerInfo?.phone || '';
+    const cleanPhone = this.cleanPhoneNumber(customerPhone);
+
+    // ========== GENERATE CORRECT TRACKING URL ==========
+    const trackingUrl = consignmentId && cleanPhone
+      ? `https://merchant.pathao.com/tracking?consignment_id=${consignmentId}&phone=${cleanPhone}`
+      : '';
+
+    console.log('✅ Generated tracking URL:', trackingUrl);
+
+    return {
+      success: true,
+      courierOrderId: consignmentId,
+      trackingNumber: consignmentId,
+      trackingUrl: trackingUrl,  // ✅ This is what gets stored in the order
+      labelUrl: orderInfo.label_url || '',
+      invoiceUrl: orderInfo.invoice_url || '',
+      fullResponse: data,
+      message: 'Order created successfully with Pathao'
+    };
+  } catch (error) {
+    console.error('❌ Pathao order creation error:', error);
+    return {
+      success: false,
+      message: error.message
+    };
   }
+}
 
   async formatOrderData(order, storeId) {
     const customer = order.customerInfo;
