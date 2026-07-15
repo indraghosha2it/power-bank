@@ -95,7 +95,7 @@ const { encryptJson, decryptJson } = require('../credentialCrypto');
 const courierCredentialFields = {
   pathao: ['clientId', 'clientSecret', 'username', 'password'],
   steadfast: ['apiKey', 'secretKey'],
-  redx: ['apiToken', 'phone', 'password']  // ✅ apiToken is here
+  redx: ['apiToken', 'phone', 'password', 'shopId']  // ✅ apiToken is here
 };
 
 async function getCourierDocBySlug(slug) {

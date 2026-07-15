@@ -1,9 +1,10 @@
 
 // const CourierAdapter = require('./CourierAdapter');
 
-// // ========== CORRECT REDX API ENDPOINTS ==========
+// // ========== REDX API ENDPOINTS ==========
 // const REDX_AUTH_URL = 'https://api.redx.com.bd/v4/auth/login';
 // const REDX_API_BASE = 'https://openapi.redx.com.bd/v1.0.0-beta';
+// const REDX_SANDBOX_BASE = 'https://sandbox.redx.com.bd/v1.0.0-beta';
 
 // class RedxAdapter extends CourierAdapter {
 //   constructor(creds, storeConfig) {
@@ -14,7 +15,6 @@
 //     this.areasCacheTime = null;
 //     this.cacheTTL = 3600000; // 1 hour cache TTL
     
-//     // Store config for RedX specific settings
 //     this.redxConfig = {
 //       pickupStoreId: storeConfig?.pickupStoreId || null,
 //       baseUrl: storeConfig?.redxBaseUrl || creds?.baseUrl || REDX_API_BASE,
@@ -23,7 +23,6 @@
 
 //   // ========== GET REDX AUTHENTICATION TOKEN ==========
 //   async getAccessToken() {
-//     // Return cached token if still valid
 //     if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
 //       return this.accessToken;
 //     }
@@ -31,22 +30,17 @@
 //     try {
 //       console.log('🔑 Getting RedX access token...');
       
-//       // If API token is provided directly, use it
 //       if (this.creds.apiToken) {
 //         console.log('✅ Using provided API token');
 //         this.accessToken = this.creds.apiToken;
-//         this.tokenExpiry = Date.now() + 3600 * 1000; // 1 hour
+//         this.tokenExpiry = Date.now() + 3600 * 1000;
 //         return this.accessToken;
 //       }
 
-//       // Clean and normalize phone number
 //       const phone = String(this.creds.phone || '').replace(/\D/g, '');
 //       const normalizedPhone = phone.startsWith('880') ? phone : 
 //                               phone.startsWith('0') ? `88${phone}` : 
 //                               `880${phone}`;
-
-//       console.log('📡 Phone:', normalizedPhone);
-//       console.log('📡 Auth URL:', REDX_AUTH_URL);
 
 //       const response = await fetch(REDX_AUTH_URL, {
 //         method: 'POST',
@@ -61,7 +55,6 @@
 //         }),
 //       });
 
-//       // Check content type
 //       const contentType = response.headers.get('content-type');
 //       if (contentType && contentType.includes('text/html')) {
 //         const html = await response.text();
@@ -78,13 +71,10 @@
 //         throw new Error('RedX API returned invalid JSON response');
 //       }
 
-//       console.log('📊 Auth response received');
-
 //       if (!response.ok) {
 //         throw new Error(data?.message || data?.error || 'RedX authentication failed');
 //       }
 
-//       // Extract token from response
 //       const token = data?.data?.accessToken || data?.accessToken || data?.token;
       
 //       if (!token) {
@@ -96,7 +86,6 @@
 //       this.tokenExpiry = Date.now() + (data?.expires_in || 3600) * 1000;
       
 //       console.log('✅ RedX token obtained successfully');
-//       console.log('📝 Token:', token.substring(0, 20) + '...');
 //       return this.accessToken;
       
 //     } catch (error) {
@@ -111,19 +100,18 @@
 //     return url.replace(/\/$/, '');
 //   }
 
-//   // ========== GET AUTH HEADERS ==========
+//   // ========== GET AUTH HEADERS - FIXED ==========
 //   getAuthHeaders(token) {
 //     return {
-//       'API-ACCESS-TOKEN': token, // Changed: Removed "Bearer " prefix
+//       'API-ACCESS-TOKEN': `Bearer ${token}`,  // ✅ Bearer prefix is REQUIRED
 //       'Accept': 'application/json',
 //       'Content-Type': 'application/json',
 //     };
 //   }
 
-//   // ========== FETCH REDX AREAS WITH CACHE ==========
+//   // ========== FETCH REDX AREAS ==========
 //   async fetchAreas(districtName = null) {
 //     try {
-//       // Check cache
 //       const now = Date.now();
 //       if (this.areasCache && this.areasCacheTime && (now - this.areasCacheTime) < this.cacheTTL) {
 //         console.log(`📦 Using cached areas (${this.areasCache.length} areas)`);
@@ -139,21 +127,17 @@
 //       }
       
 //       console.log(`📡 Fetching RedX areas: ${url}`);
-//       console.log('📝 Token being used:', token.substring(0, 20) + '...');
       
 //       const response = await fetch(url, {
 //         headers: this.getAuthHeaders(token),
 //       });
 
-//       // Log response status
 //       console.log('📊 Response Status:', response.status);
 
-//       // Check if response is JSON
 //       const contentType = response.headers.get('content-type');
 //       if (contentType && contentType.includes('text/html')) {
 //         const html = await response.text();
 //         console.error('❌ Received HTML instead of JSON');
-//         console.error('📄 HTML snippet:', html.substring(0, 500));
 //         throw new Error('RedX API returned HTML. Please check the API endpoint.');
 //       }
 
@@ -166,8 +150,6 @@
 //         throw new Error('RedX API returned invalid JSON response');
 //       }
 
-//       console.log('📊 Response data:', JSON.stringify(data, null, 2));
-
 //       if (!response.ok) {
 //         const errorMsg = data?.message || data?.error || `HTTP ${response.status}`;
 //         throw new Error(errorMsg);
@@ -175,7 +157,6 @@
       
 //       const areas = data?.areas || [];
       
-//       // Cache the areas
 //       this.areasCache = areas;
 //       this.areasCacheTime = Date.now();
       
@@ -184,7 +165,6 @@
       
 //     } catch (error) {
 //       console.error('❌ Fetch RedX areas error:', error);
-//       // If we have cached areas, return them even if expired
 //       if (this.areasCache) {
 //         console.log('⚠️ Using expired cache due to fetch failure');
 //         return this.areasCache;
@@ -197,7 +177,6 @@
 //   async findDeliveryAreaId(order) {
 //     const customer = order.customerInfo;
     
-//     // Build search terms from address
 //     const searchTerms = [
 //       customer.area || '',
 //       customer.zone || '',
@@ -212,21 +191,41 @@
 //       area: customer.area,
 //     });
 
-//     try {
-//       // Fetch all areas (or areas for the specific city)
-//       const areas = await this.fetchAreas(customer.city);
+//     // try {
+//     //   const areas = await this.fetchAreas(customer.city);
       
-//       if (!areas || areas.length === 0) {
-//         console.log('⚠️ No areas found for city:', customer.city);
-//         return null;
-//       }
+//     //   if (!areas || areas.length === 0) {
+//     //     console.log('⚠️ No areas found for city:', customer.city);
+//     //     return null;
+//     //   }
 
-//       console.log(`🔍 Searching through ${areas.length} areas for matching address...`);
+//     try {
+//   // Fetch the FULL area list — don't pre-filter by district_name.
+//   // RedX's district_name filter requires an EXACT match against its own
+//   // internal spelling (e.g. it may store "Chapai Nawabganj" with a space,
+//   // while the customer's address has "Chapainawabganj"). A mismatch makes
+//   // RedX's API itself throw ("No active area found for provided
+//   // district_name") before your local fuzzy-matching logic ever runs.
+//   // So: try the filtered call first (fast path via cache), and if RedX
+//   // rejects it, fall back to fetching everything and matching locally.
+//   let areas;
+//   try {
+//     areas = await this.fetchAreas(customer.city);
+//   } catch (filterError) {
+//     console.log(`⚠️ RedX rejected district_name="${customer.city}" (${filterError.message}). Retrying with full area list...`);
+//     areas = await this.fetchAreas(); // no filter
+//   }
+
+//   if (!areas || areas.length === 0) {
+//     console.log('⚠️ No areas found for city:', customer.city);
+//     return null;
+//   }
+
+//       console.log(`🔍 Searching through ${areas.length} areas...`);
 
 //       let matchedArea = null;
 //       let matchScore = 0;
 
-//       // Try to find the best matching area
 //       for (const area of areas) {
 //         const areaName = (area.name || '').toLowerCase().trim();
 //         const areaDistrict = (area.district_name || '').toLowerCase().trim();
@@ -234,43 +233,32 @@
         
 //         let score = 0;
 
-//         // Check each search term
 //         for (const term of searchTerms) {
 //           const termLower = term.toLowerCase().trim();
 //           if (!termLower) continue;
 
-//           // Exact match on area name (highest priority)
 //           if (areaName === termLower) {
 //             score += 100;
-//           }
-//           // Area name contains term
-//           else if (areaName.includes(termLower) || termLower.includes(areaName)) {
+//           } else if (areaName.includes(termLower) || termLower.includes(areaName)) {
 //             score += 50;
-//           }
-//           // District match
-//           else if (areaDistrict === termLower || areaDistrict.includes(termLower) || termLower.includes(areaDistrict)) {
+//           } else if (areaDistrict === termLower || areaDistrict.includes(termLower) || termLower.includes(areaDistrict)) {
 //             score += 30;
-//           }
-//           // City match
-//           else if (areaCity === termLower || areaCity.includes(termLower) || termLower.includes(areaCity)) {
+//           } else if (areaCity === termLower || areaCity.includes(termLower) || termLower.includes(areaCity)) {
 //             score += 20;
 //           }
 //         }
 
-//         // If we have a higher score, update match
 //         if (score > matchScore) {
 //           matchScore = score;
 //           matchedArea = area;
 //         }
 //       }
 
-//       // If we found a match with reasonable score
 //       if (matchedArea && matchScore > 0) {
-//         console.log(`✅ Found matching area: ${matchedArea.name} (ID: ${matchedArea.id}) with score ${matchScore}`);
+//         console.log(`✅ Found matching area: ${matchedArea.name} (ID: ${matchedArea.id})`);
 //         return matchedArea;
 //       }
 
-//       // If no match found, try using the first area as fallback
 //       if (areas.length > 0) {
 //         const firstArea = areas[0];
 //         console.log(`⚠️ No match found, using first area: ${firstArea.name} (ID: ${firstArea.id})`);
@@ -290,24 +278,21 @@
 //     try {
 //       console.log('🧪 Testing RedX connection...');
       
-//       // Check credentials
 //       if (!this.creds.phone && !this.creds.apiToken) {
 //         return { 
 //           success: false, 
-//           message: 'RedX credentials not configured. Please add phone and password or API token.',
-//           details: 'Phone and password are required for authentication'
+//           message: 'RedX credentials not configured. Please add API token or phone/password.',
+//           details: 'API token is required for authentication'
 //         };
 //       }
 
-//       // Get token
 //       const token = await this.getAccessToken();
-      
-//       // Test by fetching areas
 //       const baseUrl = this.getBaseUrl();
 //       const url = `${baseUrl}/areas`;
       
 //       console.log('📡 Testing areas endpoint:', url);
-//       console.log('📝 Token being used:', token.substring(0, 20) + '...');
+//       console.log('📝 Token (first 20 chars):', token.substring(0, 20) + '...');
+//       console.log('📝 Header format: API-ACCESS-TOKEN: Bearer <token>');
       
 //       const response = await fetch(url, {
 //         headers: this.getAuthHeaders(token),
@@ -315,12 +300,18 @@
 
 //       console.log('📊 Response Status:', response.status);
 
-//       // Check content type
+//       if (response.status === 401) {
+//         return {
+//           success: false,
+//           message: 'RedX authentication failed (401 Unauthorized). Please check that your API token is valid and has not expired.',
+//           details: 'Generate a new token from RedX Merchant Panel → Developer APIs → Configuration'
+//         };
+//       }
+
 //       const contentType = response.headers.get('content-type');
 //       if (contentType && contentType.includes('text/html')) {
 //         const html = await response.text();
 //         console.error('❌ Received HTML instead of JSON');
-//         console.error('📄 HTML snippet:', html.substring(0, 500));
 //         throw new Error('RedX API returned HTML. Please check the base URL.');
 //       }
 
@@ -332,8 +323,6 @@
 //         console.error('❌ Failed to parse response:', text.substring(0, 200));
 //         throw new Error('RedX API returned invalid JSON');
 //       }
-
-//       console.log('📊 Response data:', JSON.stringify(data, null, 2));
 
 //       if (!response.ok) {
 //         const errorMsg = data?.message || data?.error || `HTTP ${response.status}`;
@@ -367,11 +356,9 @@
 //       const token = await this.getAccessToken();
 //       const baseUrl = this.getBaseUrl();
       
-//       // ========== AUTO-FIND DELIVERY AREA FROM ORDER ADDRESS ==========
 //       let areaId = this.redxConfig.deliveryAreaId || this.storeConfig?.redxDeliveryAreaId;
 //       let areaName = this.redxConfig.deliveryAreaName || this.storeConfig?.redxDeliveryAreaName;
       
-//       // If no area ID in config, find it from the order address
 //       if (!areaId) {
 //         console.log('📍 No area ID in config, finding from order address...');
 //         const matchedArea = await this.findDeliveryAreaId(orderData);
@@ -392,12 +379,7 @@
 //       const cleanPhone = this.cleanPhoneNumber(customer.phone);
 //       const weightGrams = Math.round((orderData.weight || 0.5) * 1000);
 //       const codAmount = orderData.paymentMethod === 'cod' ? Math.round(orderData.total || 0) : 0;
-//       const itemDescription = orderData.items
-//         .map(item => `${item.productName || 'Product'} x${item.quantity || 1}`)
-//         .join(', ')
-//         .slice(0, 255);
 
-//       // Build the full address
 //       const fullAddress = [
 //         customer.address,
 //         customer.area || '',
@@ -406,7 +388,11 @@
 //         customer.division || ''
 //       ].filter(Boolean).join(', ');
 
-//       // Build the request body
+//       const itemDescription = orderData.items
+//         .map(item => `${item.productName || 'Product'} x${item.quantity || 1}`)
+//         .join(', ')
+//         .slice(0, 255);
+
 //       const body = {
 //         customer_name: customer.fullName || 'Customer',
 //         customer_phone: cleanPhone || '01700000000',
@@ -415,7 +401,7 @@
 //         customer_address: fullAddress.slice(0, 255),
 //         merchant_invoice_id: orderData.orderNumber || `ORD-${Date.now()}`,
 //         cash_collection_amount: String(codAmount),
-//         parcel_weight: Math.max(100, weightGrams), // Minimum 100g
+//         parcel_weight: Math.max(100, weightGrams),
 //         instruction: (customer.note || '').slice(0, 255),
 //         value: Math.round(orderData.total || 0),
 //         parcel_details_json: [
@@ -427,7 +413,6 @@
 //         ],
 //       };
 
-//       // Add pickup store ID if configured
 //       const pickupStoreId = this.redxConfig.pickupStoreId || this.storeConfig?.pickupStoreId;
 //       if (pickupStoreId) {
 //         body.pickup_store_id = pickupStoreId;
@@ -455,14 +440,11 @@
 //         throw new Error('RedX API returned invalid JSON response');
 //       }
 
-//       console.log('📊 RedX response:', JSON.stringify(data, null, 2));
-
 //       if (!response.ok) {
 //         const errorMsg = data?.message || data?.error || 'RedX parcel creation failed';
 //         throw new Error(errorMsg);
 //       }
 
-//       // Extract tracking ID from response
 //       const trackingId = data?.tracking_id || data?.data?.tracking_id || data?.id;
       
 //       return {
@@ -535,7 +517,7 @@
 //       const token = await this.getAccessToken();
 //       const baseUrl = this.getBaseUrl();
       
-//       const response = await fetch(`${baseUrl}/parcel/${trackingNumber}`, {
+//       const response = await fetch(`${baseUrl}/parcel/track/${trackingNumber}`, {
 //         headers: this.getAuthHeaders(token),
 //       });
 
@@ -548,7 +530,7 @@
 //       return { 
 //         success: true, 
 //         status: data?.status || data?.delivery_status,
-//         history: data?.history || [],
+//         history: data?.tracking || [],
 //         fullResponse: data 
 //       };
       
@@ -564,9 +546,18 @@
 //       const token = await this.getAccessToken();
 //       const baseUrl = this.getBaseUrl();
       
-//       const response = await fetch(`${baseUrl}/parcel/${courierOrderId}/cancel`, {
-//         method: 'POST',
+//       const response = await fetch(`${baseUrl}/parcels`, {
+//         method: 'PATCH',
 //         headers: this.getAuthHeaders(token),
+//         body: JSON.stringify({
+//           entity_type: 'parcel-tracking-id',
+//           entity_id: courierOrderId,
+//           update_details: {
+//             property_name: 'status',
+//             new_value: 'cancelled',
+//             reason: 'Cancelled by merchant',
+//           },
+//         }),
 //       });
 
 //       const data = await response.json();
@@ -587,7 +578,7 @@
 //     }
 //   }
 
-//   // ========== GET AVAILABLE AREAS (Public method) ==========
+//   // ========== GET AVAILABLE AREAS ==========
 //   async getAvailableAreas(districtName = null) {
 //     return this.fetchAreas(districtName);
 //   }
@@ -615,6 +606,8 @@ class RedxAdapter extends CourierAdapter {
     this.redxConfig = {
       pickupStoreId: storeConfig?.pickupStoreId || null,
       baseUrl: storeConfig?.redxBaseUrl || creds?.baseUrl || REDX_API_BASE,
+      // ✅ Shop ID from credentials or storeConfig
+      shopId: creds?.shopId || storeConfig?.shopId || null,
     };
   }
 
@@ -789,8 +782,22 @@ class RedxAdapter extends CourierAdapter {
     });
 
     try {
-      const areas = await this.fetchAreas(customer.city);
-      
+      // Fetch the FULL area list — don't pre-filter by district_name.
+      // RedX's district_name filter requires an EXACT match against its own
+      // internal spelling (e.g. it may store "Chapai Nawabganj" with a space,
+      // while the customer's address has "Chapainawabganj"). A mismatch makes
+      // RedX's API itself throw ("No active area found for provided
+      // district_name") before your local fuzzy-matching logic ever runs.
+      // So: try the filtered call first (fast path via cache), and if RedX
+      // rejects it, fall back to fetching everything and matching locally.
+      let areas;
+      try {
+        areas = await this.fetchAreas(customer.city);
+      } catch (filterError) {
+        console.log(`⚠️ RedX rejected district_name="${customer.city}" (${filterError.message}). Retrying with full area list...`);
+        areas = await this.fetchAreas(); // no filter
+      }
+
       if (!areas || areas.length === 0) {
         console.log('⚠️ No areas found for city:', customer.city);
         return null;
@@ -1022,11 +1029,21 @@ class RedxAdapter extends CourierAdapter {
 
       const trackingId = data?.tracking_id || data?.data?.tracking_id || data?.id;
       
+      // ========== GET SHOP ID FROM CONFIG OR CREDS ==========
+      const shopId = this.redxConfig.shopId || this.creds?.shopId || '1046591';
+      
+      // ========== GENERATE CORRECT TRACKING URL WITH SHOP ID ==========
+      const trackingUrl = trackingId && shopId
+        ? `https://redx.com.bd/track-parcel/?trackingId=${trackingId}&shopId=${shopId}`
+        : (trackingId ? `https://redx.com.bd/track/${trackingId}` : '');
+
+      console.log('✅ Generated tracking URL:', trackingUrl);
+      
       return {
         success: true,
         courierOrderId: trackingId ? String(trackingId) : null,
         trackingNumber: trackingId ? String(trackingId) : null,
-        trackingUrl: trackingId ? `https://redx.com.bd/track/${trackingId}` : null,
+        trackingUrl: trackingUrl,
         labelUrl: data?.label_url || data?.data?.label_url || '',
         fullResponse: data,
         message: 'Order created successfully with RedX'
