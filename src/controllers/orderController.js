@@ -4796,6 +4796,59 @@ const createDeliveryOrder = async (req, res) => {
 };
 
 // ========== GET ORDER TRACKING ==========
+// const getOrderTracking = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+    
+//     const order = await Order.findById(id);
+//     if (!order) {
+//       return res.status(404).json({ success: false, error: 'Order not found' });
+//     }
+    
+//     if (!order.deliveryService || !order.deliveryService.courierSlug) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'No delivery service assigned to this order' 
+//       });
+//     }
+    
+//     const { courierSlug, trackingNumber } = order.deliveryService;
+    
+//     const { getCourierIntegration } = require('../lib/credentials');
+//     const integration = await getCourierIntegration(courierSlug);
+    
+//     if (!integration || !integration.creds) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Courier is not configured' 
+//       });
+//     }
+    
+//     const { getCourierTracking } = require('../lib/couriers/factory');
+//     const result = await getCourierTracking(
+//       courierSlug,
+//       integration.creds,
+//       trackingNumber
+//     );
+    
+//     if (!result.success) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: result.message || 'Failed to get tracking info' 
+//       });
+//     }
+    
+//     res.json({
+//       success: true,
+//       data: result
+//     });
+//   } catch (error) {
+//     console.error('Get tracking error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+// ========== GET ORDER TRACKING ==========
 const getOrderTracking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -4814,7 +4867,7 @@ const getOrderTracking = async (req, res) => {
     
     const { courierSlug, trackingNumber } = order.deliveryService;
     
-    const { getCourierIntegration } = require('../lib/credentials');
+    const { getCourierIntegration } = require('../lib/couriers/credentials');
     const integration = await getCourierIntegration(courierSlug);
     
     if (!integration || !integration.creds) {
@@ -4838,9 +4891,41 @@ const getOrderTracking = async (req, res) => {
       });
     }
     
+    // ========== AUTO-UPDATE PAYMENT STATUS ON DELIVERY ==========
+    // Check if tracking status indicates delivered
+    const trackingStatus = (result.status || result.data?.status || '').toLowerCase();
+    const deliveredKeywords = ['delivered', 'completed', 'success'];
+    const isDelivered = deliveredKeywords.some(keyword => 
+      trackingStatus === keyword || trackingStatus.includes(keyword)
+    );
+    
+    // If delivered and not already marked
+    if (isDelivered && order.deliveryService.deliveryStatus !== 'delivered') {
+      const oldPaymentStatus = order.paymentStatus;
+      
+      // Update delivery status (auto-payment logic inside)
+      order.updateDeliveryStatus(
+        'delivered', 
+        result.message || 'Order delivered successfully',
+        result.location || ''
+      );
+      
+      await order.save();
+      
+      console.log(`✅ Order ${order.orderNumber} - Auto-updated on tracking: Delivered`);
+      if (oldPaymentStatus !== order.paymentStatus) {
+        console.log(`💰 Order ${order.orderNumber} - Payment: ${oldPaymentStatus} → ${order.paymentStatus}`);
+      }
+    }
+    
     res.json({
       success: true,
-      data: result
+      data: {
+        ...result,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        deliveryStatus: order.deliveryService.deliveryStatus
+      }
     });
   } catch (error) {
     console.error('Get tracking error:', error);
@@ -5338,6 +5423,70 @@ const getAgentDashboard = async (req, res) => {
   }
 };
 
+// ========== UPDATE DELIVERY STATUS ==========
+// @desc    Update delivery status from courier tracking
+// @route   PUT /api/orders/:id/delivery-status
+// @access  Private (User/Admin)
+// ========== UPDATE DELIVERY STATUS ==========
+// @desc    Update delivery status from courier tracking
+// @route   PUT /api/orders/:id/delivery-status
+// @access  Private (User/Admin)
+const updateDeliveryStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, message, location } = req.body;
+    
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    // Check permission
+    const userId = req.user?._id;
+    const sessionId = req.headers['x-session-id'] || req.cookies?.sessionId;
+    const hasPermission = (userId && order.userId && order.userId.toString() === userId.toString()) ||
+                         (sessionId && order.sessionId === sessionId) ||
+                         ['admin', 'moderator', 'super_admin'].includes(req.user?.role);
+    
+    if (!hasPermission) {
+      return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
+    }
+    
+    if (!order.deliveryService) {
+      return res.status(400).json({ success: false, error: 'No delivery service found for this order' });
+    }
+    
+    // Store old status before update
+    const oldDeliveryStatus = order.deliveryService.deliveryStatus;
+    const oldPaymentStatus = order.paymentStatus;
+    
+    // ========== UPDATE DELIVERY STATUS (AUTO-PAYMENT LOGIC INSIDE) ==========
+    order.updateDeliveryStatus(status, message || `Status updated to ${status}`, location || '');
+    
+    await order.save();
+    
+    // Log changes
+    console.log(`📦 Order ${order.orderNumber}: Delivery status ${oldDeliveryStatus} → ${status}`);
+    if (oldPaymentStatus !== order.paymentStatus) {
+      console.log(`💰 Order ${order.orderNumber}: Payment status ${oldPaymentStatus} → ${order.paymentStatus} (Auto-updated on delivery)`);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        deliveryStatus: order.deliveryService.deliveryStatus,
+        deliveryStatusHistory: order.deliveryService.deliveryStatusHistory,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus
+      },
+      message: `Delivery status updated to ${status}${order.paymentStatus === 'paid' ? ' and payment marked as Paid' : ''}`
+    });
+  } catch (error) {
+    console.error('Update delivery status error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // ========== EXPORTS ==========
 module.exports = {
   createOrder,
@@ -5358,5 +5507,6 @@ module.exports = {
   getAgentOrders,        
   updateAgentOrderStatus,
   getAgentDashboard,
-  checkOrderRestrictions
+  checkOrderRestrictions,
+  updateDeliveryStatus
 };

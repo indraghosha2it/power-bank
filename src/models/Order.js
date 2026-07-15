@@ -1335,6 +1335,54 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
 /**
  * Update delivery status with history
  */
+// orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
+//   if (!this.deliveryService) {
+//     this.deliveryService = {};
+//   }
+  
+//   const validStatuses = ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'];
+  
+//   if (!validStatuses.includes(status)) {
+//     throw new Error(`Invalid delivery status: ${status}`);
+//   }
+  
+//   this.deliveryService.deliveryStatus = status;
+  
+//   if (!this.deliveryService.deliveryStatusHistory) {
+//     this.deliveryService.deliveryStatusHistory = [];
+//   }
+  
+//   this.deliveryService.deliveryStatusHistory.push({
+//     status,
+//     message: message || `Status updated to ${status}`,
+//     location,
+//     timestamp: new Date()
+//   });
+  
+//   if (status === 'delivered') {
+//     this.deliveryService.actualDeliveryDate = new Date();
+//   }
+  
+//   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
+//     this.deliveryService.pickedUpDate = new Date();
+//   }
+  
+//   if (status === 'delivered') {
+//     this.orderStatus = 'delivered';
+//     this.deliveredAt = new Date();
+//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+//   }
+  
+//   return this;
+// };
+
+// In Order.js - Update the updateDeliveryStatus method
+
+// ========== UPDATE DELIVERY STATUS METHOD ==========
+/**
+ * Update delivery status with history
+ * Auto-updates payment status for COD orders when delivered
+ */
 orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
   if (!this.deliveryService) {
     this.deliveryService = {};
@@ -1346,8 +1394,12 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     throw new Error(`Invalid delivery status: ${status}`);
   }
   
+  const oldStatus = this.deliveryService.deliveryStatus || 'pending';
+  
+  // Update delivery status
   this.deliveryService.deliveryStatus = status;
   
+  // Add to history
   if (!this.deliveryService.deliveryStatusHistory) {
     this.deliveryService.deliveryStatusHistory = [];
   }
@@ -1359,18 +1411,34 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     timestamp: new Date()
   });
   
+  // ========== AUTO-UPDATE ON DELIVERY ==========
   if (status === 'delivered') {
-    this.deliveryService.actualDeliveryDate = new Date();
+    // 1. Update order status
+    this.orderStatus = 'delivered';
+    this.deliveredAt = new Date();
+    this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+    
+    // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
+    if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
+      this.paymentStatus = 'paid';
+      console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
+      
+      // Update payment details with timestamp
+      if (!this.paymentDetails) {
+        this.paymentDetails = {};
+      }
+      this.paymentDetails.paidAt = new Date();
+      this.paymentDetails.paidBy = 'System (Auto-updated on delivery)';
+    }
   }
   
+  // Handle other statuses
   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
     this.deliveryService.pickedUpDate = new Date();
   }
   
   if (status === 'delivered') {
-    this.orderStatus = 'delivered';
-    this.deliveredAt = new Date();
-    this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+    this.deliveryService.actualDeliveryDate = new Date();
   }
   
   return this;

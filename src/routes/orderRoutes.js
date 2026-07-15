@@ -84,7 +84,8 @@ const {
   getPublicOrder,
   getAgentOrders,           // ✅ ADD THIS
   updateAgentOrderStatus ,
-  getAgentDashboard
+  getAgentDashboard,
+  updateDeliveryStatus
 } = require('../controllers/orderController');
 
 // Apply IP middleware to all order routes
@@ -119,5 +120,8 @@ router.get('/public/:id', getPublicOrder);
 
 // Delete (Admin only)
 router.delete('/:id', protect, isAdmin, deleteOrder);
+
+// Add this with other routes
+router.put('/:id/delivery-status', protect, updateDeliveryStatus);
 
 module.exports = router;
