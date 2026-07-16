@@ -8,8 +8,14 @@ const {
   testCourierConnectionHandler,
   createDeliveryOrder,
   getOrderTrackingHandler,
-  cancelDeliveryOrder
+  cancelDeliveryOrder,
+  
 } = require('../controllers/adminCourierController');
+
+const {
+  getCourierScoresForPhone,
+  getCourierScoresForOrder
+} = require('../controllers/courierScoreController');
 
 // ========== GET ALL COURIERS ==========
 router.get('/couriers', protect, isModeratorOrAdmin, getCouriers);
@@ -28,6 +34,8 @@ router.post('/couriers/:slug/create-order', protect, isModeratorOrAdmin, createD
 
 // ========== GET ORDER TRACKING ==========
 router.get('/couriers/:slug/track/:trackingNumber', protect, isModeratorOrAdmin, getOrderTrackingHandler);
+router.get('/courier-scores/phone/:phone', protect, isModeratorOrAdmin, getCourierScoresForPhone);
+router.get('/courier-scores/order/:orderId', protect, isModeratorOrAdmin, getCourierScoresForOrder);
 
 // ========== CANCEL DELIVERY ORDER ==========
 router.post('/couriers/:slug/cancel-order/:courierOrderId', protect, isModeratorOrAdmin, cancelDeliveryOrder);

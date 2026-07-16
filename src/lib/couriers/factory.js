@@ -50,10 +50,23 @@ async function cancelCourierOrder(slug, creds, storeConfig, courierOrderId) {
   return await adapter.cancelOrder(courierOrderId);
 }
 
+async function getCustomerLifetimeStats(slug, creds, storeConfig, phone) {
+  const adapter = createCourierAdapter(slug, creds, storeConfig);
+  if (typeof adapter.getCustomerLifetimeStats !== 'function') {
+    return {
+      success: false,
+      error: `Courier ${slug} does not support lifetime stats`,
+      configured: false
+    };
+  }
+  return await adapter.getCustomerLifetimeStats(phone);
+}
+
 module.exports = {
   createCourierAdapter,
   testCourierConnection,
   createCourierOrder,
   getCourierTracking,
-  cancelCourierOrder
+  cancelCourierOrder,
+  getCustomerLifetimeStats
 };

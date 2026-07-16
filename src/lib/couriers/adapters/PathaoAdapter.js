@@ -727,6 +727,109 @@ async createOrder(orderData) {
   }
 }
 
+
+// src/lib/couriers/adapters/PathaoAdapter.js
+
+// Add this method to the PathaoAdapter class
+
+/**
+ * Get lifetime delivery stats for a customer phone number
+ * This uses the Pathao merchant panel's customer success API
+ */
+async getCustomerLifetimeStats(phone) {
+  try {
+    console.log(`🔍 Pathao: Fetching lifetime stats for ${phone}`);
+    
+    const token = await this.getAccessToken();
+    const cleanPhone = this.cleanPhoneNumber(phone);
+    
+    const response = await fetch('https://merchant.pathao.com/api/v1/user/success', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ phone: cleanPhone }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ Pathao fraud check error:', data);
+      return {
+        success: false,
+        error: data?.message || 'Pathao customer lookup failed',
+        configured: true
+      };
+    }
+
+    const payload = data?.data || {};
+
+    // Check for v2 API with customer_rating
+    if (payload.version === 'v2' || payload.customer_rating) {
+      const rating = String(payload.customer_rating || 'unknown');
+      const addressCount = Array.isArray(payload.address_book) ? payload.address_book.length : 0;
+      
+      // Map rating to approximate success rate
+      const ratingSuccessMap = {
+        new_customer: null,
+        good_customer: 85,
+        regular_customer: 65,
+        bad_customer: 20,
+        blocked: 0,
+      };
+      
+      return {
+        success: true,
+        rating,
+        addressCount,
+        ratingBased: true,
+        configured: true,
+        // Return empty counts since v2 doesn't provide them
+        delivered: 0,
+        cancelled: 0,
+        total: 0,
+        successRate: ratingSuccessMap[rating] ?? 0
+      };
+    }
+
+    // Legacy v1 response with numeric counts
+    const customer = payload.customer || payload;
+    const delivered = Number(
+      customer?.successful_delivery ??
+      customer?.success_delivery ??
+      customer?.delivered ??
+      customer?.total_delivered ??
+      0
+    );
+    const total = Number(
+      customer?.total_delivery ??
+      customer?.total ??
+      customer?.total_parcels ??
+      0
+    );
+    const cancelled = Math.max(0, total - delivered);
+
+    return {
+      success: true,
+      delivered,
+      cancelled,
+      total,
+      configured: true,
+      ratingBased: false
+    };
+    
+  } catch (error) {
+    console.error('❌ Pathao fraud check error:', error);
+    return {
+      success: false,
+      error: error.message || 'Pathao request failed',
+      configured: true
+    };
+  }
+}
+
   async formatOrderData(order, storeId) {
     const customer = order.customerInfo;
 

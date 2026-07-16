@@ -4934,6 +4934,156 @@ const getOrderTracking = async (req, res) => {
 };
 
 // ========== TRACK ORDER BY PHONE ==========
+// const trackOrderByPhone = async (req, res) => {
+//   try {
+//     const { phone } = req.params;
+    
+//     if (!phone) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Phone number is required' 
+//       });
+//     }
+    
+//     const orders = await Order.find({
+//       'customerInfo.phone': phone
+//     })
+//     .sort({ createdAt: -1 })
+//     .select('_id orderNumber orderStatus items subtotal shippingCost discount total customerInfo createdAt deliveredAt cancelledAt statusHistory trackingNumber paymentMethod paymentStatus');
+    
+//     if (!orders || orders.length === 0) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         error: 'No orders found for this phone number' 
+//       });
+//     }
+    
+//     const statusLabels = {
+//       'placed': 'Order Placed',
+//       'follow_up': 'Follow Up',
+//       'accepted': 'Accepted',
+//       'processing': 'Processing',
+//       'shipped': 'Shipped',
+//       'out_for_delivery': 'Out for Delivery',
+//       'delivered': 'Delivered',
+//       'cancelled': 'Cancelled',
+//       'reminder': 'Reminder',
+//       'refunded': 'Refunded',
+//       'failed': 'Failed'
+//     };
+    
+//     const formattedOrders = orders.map(order => {
+//       const timeline = order.statusHistory ? order.statusHistory.map(entry => ({
+//         status: entry.status,
+//         label: statusLabels[entry.status] || entry.status,
+//         note: entry.note,
+//         timestamp: entry.timestamp,
+//         formattedDate: entry.timestamp ? new Date(entry.timestamp).toLocaleString('en-BD', {
+//           day: '2-digit',
+//           month: 'short',
+//           year: 'numeric',
+//           hour: '2-digit',
+//           minute: '2-digit'
+//         }) : null
+//       })) : [];
+      
+//       if (timeline.length === 0) {
+//         timeline.push({
+//           status: order.orderStatus,
+//           label: statusLabels[order.orderStatus] || order.orderStatus,
+//           note: `Order ${order.orderStatus}`,
+//           timestamp: order.createdAt,
+//           formattedDate: new Date(order.createdAt).toLocaleString('en-BD', {
+//             day: '2-digit',
+//             month: 'short',
+//             year: 'numeric',
+//             hour: '2-digit',
+//             minute: '2-digit'
+//           })
+//         });
+        
+//         if (order.deliveredAt) {
+//           timeline.push({
+//             status: 'delivered',
+//             label: 'Delivered',
+//             note: 'Order delivered',
+//             timestamp: order.deliveredAt,
+//             formattedDate: new Date(order.deliveredAt).toLocaleString('en-BD', {
+//               day: '2-digit',
+//               month: 'short',
+//               year: 'numeric',
+//               hour: '2-digit',
+//               minute: '2-digit'
+//             })
+//           });
+//         }
+        
+//         if (order.cancelledAt) {
+//           timeline.push({
+//             status: 'cancelled',
+//             label: 'Cancelled',
+//             note: order.cancellationReason || 'Order cancelled',
+//             timestamp: order.cancelledAt,
+//             formattedDate: new Date(order.cancelledAt).toLocaleString('en-BD', {
+//               day: '2-digit',
+//               month: 'short',
+//               year: 'numeric',
+//               hour: '2-digit',
+//               minute: '2-digit'
+//             })
+//           });
+//         }
+//       }
+      
+//       timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+//       const itemsSummary = order.items.map(item => ({
+//         name: item.productName,
+//         quantity: item.quantity,
+//         price: item.discountPrice || item.regularPrice,
+//         image: item.image
+//       }));
+      
+//       return {
+//         _id: order._id,
+//         id: order._id,
+//         orderNumber: order.orderNumber,
+//         orderStatus: order.orderStatus,
+//         statusLabel: statusLabels[order.orderStatus] || order.orderStatus,
+//         customerName: order.customerInfo?.fullName,
+//         total: order.total,
+//         subtotal: order.subtotal,
+//         shippingCost: order.shippingCost,
+//         discount: order.discount,
+//         createdAt: order.createdAt,
+//         deliveredAt: order.deliveredAt || null,
+//         cancelledAt: order.cancelledAt || null,
+//         trackingNumber: order.trackingNumber || null,
+//         paymentMethod: order.paymentMethod,
+//         paymentStatus: order.paymentStatus,
+//         items: itemsSummary,
+//         timeline: timeline,
+//         statusHistory: order.statusHistory || []
+//       };
+//     });
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         phone: phone,
+//         totalOrders: formattedOrders.length,
+//         orders: formattedOrders
+//       },
+//       message: `Found ${formattedOrders.length} order(s) for this phone number`
+//     });
+    
+//   } catch (error) {
+//     console.error('Track order error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+// ========== TRACK ORDER BY PHONE - UPDATED ==========
 const trackOrderByPhone = async (req, res) => {
   try {
     const { phone } = req.params;
@@ -4949,7 +5099,8 @@ const trackOrderByPhone = async (req, res) => {
       'customerInfo.phone': phone
     })
     .sort({ createdAt: -1 })
-    .select('_id orderNumber orderStatus items subtotal shippingCost discount total customerInfo createdAt deliveredAt cancelledAt statusHistory trackingNumber paymentMethod paymentStatus');
+    .select('_id orderNumber orderStatus items subtotal shippingCost discount total customerInfo createdAt deliveredAt cancelledAt statusHistory trackingNumber paymentMethod paymentStatus deliveryService');
+    // ✅ ADDED: deliveryService is now selected
     
     if (!orders || orders.length === 0) {
       return res.status(404).json({ 
@@ -5044,6 +5195,20 @@ const trackOrderByPhone = async (req, res) => {
         image: item.image
       }));
       
+      // ========== FORMAT DELIVERY SERVICE DATA ==========
+      let deliveryService = null;
+      if (order.deliveryService) {
+        deliveryService = {
+          courierName: order.deliveryService.courierName || null,
+          courierSlug: order.deliveryService.courierSlug || null,
+          trackingNumber: order.deliveryService.trackingNumber || null,
+          trackingUrl: order.deliveryService.trackingUrl || null,
+          courierOrderId: order.deliveryService.courierOrderId || null,
+          deliveryStatus: order.deliveryService.deliveryStatus || null,
+          deliveryNote: order.deliveryService.deliveryNote || null
+        };
+      }
+      
       return {
         _id: order._id,
         id: order._id,
@@ -5063,7 +5228,8 @@ const trackOrderByPhone = async (req, res) => {
         paymentStatus: order.paymentStatus,
         items: itemsSummary,
         timeline: timeline,
-        statusHistory: order.statusHistory || []
+        statusHistory: order.statusHistory || [],
+        deliveryService: deliveryService // ✅ ADDED: deliveryService in response
       };
     });
     

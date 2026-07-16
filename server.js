@@ -228,6 +228,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { getLifetimeStats } = require('./src/lib/couriers/lifetimeStats');
+
+
 
 // Load environment variables
 dotenv.config();
@@ -274,6 +277,9 @@ const aboutRoutes = require('./src/routes/aboutRoutes');
 const incompleteOrderRoutes = require('./src/routes/incompleteOrderRoutes');
 
 const orderRestrictionRoutes = require('./src/routes/orderRestrictionRoutes');
+const pixelRoutes = require('./src/routes/pixelRoutes');
+
+
 
 
 
@@ -439,6 +445,46 @@ app.use('/api/incomplete-orders', incompleteOrderRoutes);
 
 // Add with other route registrations
 app.use('/api/order-restrictions', orderRestrictionRoutes);
+// Add this with other route registrations
+app.use('/api/pixels', pixelRoutes);
+
+
+
+
+
+// In server.js - replace the existing courier-lifetime route
+
+// Import the lifetime stats service
+
+// Add the route
+app.get('/api/courier-lifetime', async (req, res) => {
+  try {
+    const phoneNumber = req.query.phone;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+
+    console.log('📞 Courier lifetime request for:', phoneNumber);
+
+    const result = await getLifetimeStats(phoneNumber);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('API error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch courier history'
+    });
+  }
+});
 
 // ============================================
 // TEST & HEALTH ROUTES
