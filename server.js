@@ -278,6 +278,8 @@ const incompleteOrderRoutes = require('./src/routes/incompleteOrderRoutes');
 
 const orderRestrictionRoutes = require('./src/routes/orderRestrictionRoutes');
 const pixelRoutes = require('./src/routes/pixelRoutes');
+// Add with other route imports
+const customCodeRoutes = require('./src/routes/customCodeRoutes');
 
 
 
@@ -447,6 +449,10 @@ app.use('/api/incomplete-orders', incompleteOrderRoutes);
 app.use('/api/order-restrictions', orderRestrictionRoutes);
 // Add this with other route registrations
 app.use('/api/pixels', pixelRoutes);
+
+
+// ... then register the route
+app.use('/api/custom-code', customCodeRoutes);
 
 
 
