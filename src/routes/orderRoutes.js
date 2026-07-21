@@ -1,65 +1,4 @@
 
-
-// // routes/orderRoutes.js
-
-// const express = require('express');
-// const router = express.Router();
-// const { protect, optionalProtect, isAdmin, isModeratorOrAdmin } = require('../middleware/authMiddleware');
-// const ipMiddleware = require('../middleware/ipMiddleware');
-// const {
-//   createOrder,
-//   getUserOrders,
-//   getOrderById,
-//   updateOrderStatus,
-//   updatePaymentStatus,
-//   cancelOrder,
-//   getAllOrders,
-//   getOrderStats,
-//   prepareOrder,
-//   deleteOrder,
-//   updateOrder,
-//   createDeliveryOrder,
-//   getOrderTracking,
-//   trackOrderByPhone,
-//   getPublicOrder,
-//    getAgentOrders,           
-//   updateAgentOrderStatus 
-// } = require('../controllers/orderController');
-
-// // Apply IP middleware to all order routes
-// router.use(ipMiddleware);
-
-// // ============= PUBLIC ROUTES =============
-// router.post('/', optionalProtect, createOrder);
-// router.get('/', optionalProtect, getUserOrders);
-// router.get('/:id', optionalProtect, getOrderById);
-// router.put('/:id/cancel', optionalProtect, cancelOrder);
-// router.post('/prepare', optionalProtect, prepareOrder);
-
-// // ============= PROTECTED ROUTES =============
-// router.get('/admin/all', protect, isModeratorOrAdmin, getAllOrders);
-// router.get('/admin/stats', protect, isAdmin, getOrderStats);
-// router.put('/:id/status', protect, isModeratorOrAdmin, updateOrderStatus);
-// router.put('/:id/payment', protect, isModeratorOrAdmin, updatePaymentStatus);
-// router.put('/:id', protect, isModeratorOrAdmin, updateOrder);
-
-// // Delivery routes
-// router.post('/:id/delivery', protect, isModeratorOrAdmin, createDeliveryOrder);
-// router.get('/:id/tracking', protect, isModeratorOrAdmin, getOrderTracking);
-
-
-
-
-// // Public tracking
-// router.get('/track/:phone', trackOrderByPhone);
-// router.get('/public/:id', getPublicOrder);
-
-// // Delete (Admin only)
-// router.delete('/:id', protect, isAdmin, deleteOrder);
-
-// module.exports = router;
-
-
 // routes/orderRoutes.js
 
 const express = require('express');
@@ -87,6 +26,7 @@ const {
   getAgentDashboard,
   updateDeliveryStatus
 } = require('../controllers/orderController');
+const { getProfitMarginData, getProductProfitMargin } = require('../controllers/profitMarginController');
 
 // Apply IP middleware to all order routes
 router.use(ipMiddleware);
@@ -108,6 +48,10 @@ router.put('/:id', protect, isModeratorOrAdmin, updateOrder);
 // Delivery routes
 router.post('/:id/delivery', protect, isModeratorOrAdmin, createDeliveryOrder);
 router.get('/:id/tracking', protect, isModeratorOrAdmin, getOrderTracking);
+
+// ============= PROFIT MARGIN ROUTES =============
+router.get('/admin/profit-margin', protect, isModeratorOrAdmin, getProfitMarginData);
+router.get('/admin/product-profit/:productId', protect, isModeratorOrAdmin, getProductProfitMargin);
 
 // ============= AGENT ROUTES (Call Center Agent) =============
 router.get('/agent/orders', protect, isAgent, getAgentOrders);

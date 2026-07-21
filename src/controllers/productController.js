@@ -581,6 +581,19 @@ const createProduct = async (req, res) => {
       }
     }
 
+     if (costPerItem === undefined || costPerItem === null || costPerItem < 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cost per item is required and cannot be negative' 
+      });
+    }
+    if (isNaN(costPerItem)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cost per item must be a valid number' 
+      });
+    }
+
     // Barcode validation
     if (barcode) {
       const existingProductWithBarcode = await Product.findOne({ barcode });
@@ -2019,7 +2032,7 @@ const updateProduct = async (req, res) => {
 
     const {
       productName,
-      slug, // ADD THIS - Custom slug from frontend
+      slug, 
       shortDescription,
       fullDescription,
       category,
@@ -2032,7 +2045,7 @@ const updateProduct = async (req, res) => {
       regularPrice,
       costPerItem,
       discountPrice,
-      buyingPrice, // ADD THIS
+      buyingPrice, 
       unit,
       colors,
       deliveryInfo,
@@ -2089,6 +2102,21 @@ const updateProduct = async (req, res) => {
         finalSlug = productName
           ? productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
           : product.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
+    }
+
+     if (costPerItem !== undefined) {
+      if (costPerItem < 0) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cost per item cannot be negative' 
+        });
+      }
+      if (isNaN(costPerItem)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cost per item must be a valid number' 
+        });
       }
     }
 

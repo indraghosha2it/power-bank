@@ -753,6 +753,14 @@ const orderItemSchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
+  costPerItem: { 
+    type: Number, 
+    default: 0 
+  },
+  buyingPrice: { 
+    type: Number, 
+    default: 0 
+  },
   quantity: { 
     type: Number, 
     required: true, 

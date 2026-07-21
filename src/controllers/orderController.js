@@ -3104,27 +3104,55 @@ const createOrder = async (req, res) => {
     }
 
     // Process items
-    const processedItems = items.map(item => {
-      const hasColors = item.colors && item.colors.length > 0;
-      let totalQuantity = item.quantity || 0;
-      if (hasColors) {
-        totalQuantity = item.colors.reduce((sum, color) => sum + (color.quantity || 0), 0);
-      }
+    // const processedItems = items.map(item => {
+    //   const hasColors = item.colors && item.colors.length > 0;
+    //   let totalQuantity = item.quantity || 0;
+    //   if (hasColors) {
+    //     totalQuantity = item.colors.reduce((sum, color) => sum + (color.quantity || 0), 0);
+    //   }
       
-      return {
-        productId: item.productId,
-        productName: item.productName,
-        productSlug: item.productSlug,
-        image: item.image,
-        regularPrice: item.regularPrice,
-        discountPrice: item.discountPrice || 0,
-        quantity: totalQuantity,
-        stockQuantity: item.stockQuantity || 0,
-        unit: item.unit || 'pcs',
-        selectedColor: item.selectedColor || null,
-        colors: item.colors || []
-      };
-    });
+    //   return {
+    //     productId: item.productId,
+    //     productName: item.productName,
+    //     productSlug: item.productSlug,
+    //     image: item.image,
+    //     regularPrice: item.regularPrice,
+    //     discountPrice: item.discountPrice || 0,
+    //     quantity: totalQuantity,
+    //     stockQuantity: item.stockQuantity || 0,
+    //     unit: item.unit || 'pcs',
+    //     selectedColor: item.selectedColor || null,
+    //     colors: item.colors || []
+    //   };
+    // });
+
+    // In createOrder, when processing items, fetch and save costPerItem
+const processedItems = await Promise.all(items.map(async (item) => {
+  const product = await Product.findById(item.productId);
+  const costPerItem = product?.costPerItem || product?.buyingPrice || 0;
+  
+  const hasColors = item.colors && item.colors.length > 0;
+  let totalQuantity = item.quantity || 0;
+  if (hasColors) {
+    totalQuantity = item.colors.reduce((sum, color) => sum + (color.quantity || 0), 0);
+  }
+  
+  return {
+    productId: item.productId,
+    productName: item.productName,
+    productSlug: item.productSlug,
+    image: item.image,
+    regularPrice: item.regularPrice,
+    discountPrice: item.discountPrice || 0,
+    costPerItem: costPerItem, // ← ADD THIS
+    buyingPrice: costPerItem, // ← ADD THIS
+    quantity: totalQuantity,
+    stockQuantity: item.stockQuantity || 0,
+    unit: item.unit || 'pcs',
+    selectedColor: item.selectedColor || null,
+    colors: item.colors || []
+  };
+}));
 
     // Validate stock
     for (const item of processedItems) {

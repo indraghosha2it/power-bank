@@ -565,11 +565,11 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Discount price cannot be negative']
   },
-  costPerItem: {
-    type: Number,
-    default: 0,
-    min: [0, 'Cost per item cannot be negative']
-  },
+ costPerItem: {
+  type: Number,
+  required: [true, 'Cost per item is required'], // ✅ ADD THIS
+  min: [0, 'Cost per item cannot be negative']
+},
    buyingPrice: {
     type: Number,
     default: 0,
