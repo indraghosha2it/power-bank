@@ -1,54 +1,53 @@
 // test-email.js
-require('dotenv').config();
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
-async function testEmailConnection() {
-  console.log('📧 Testing email configuration...');
-  console.log('SMTP Host:', process.env.SMTP_HOST);
-  console.log('SMTP Port:', process.env.SMTP_PORT);
-  console.log('SMTP User:', process.env.SMTP_USER);
-  console.log('SMTP Password:', process.env.SMTP_PASSWORD ? '✓ Set' : '✗ Missing');
-  console.log('Owner Email:', process.env.OWNER_EMAIL);
+// Force IPv4 by disabling IPv6
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: true,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+  // Add these options
+  tls: {
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
+  },
+  // Force IPv4
+  family: 4,
+});
 
+async function testEmail() {
   try {
-    console.log('\n🔍 Verifying SMTP connection...');
+    console.log('📧 Testing email configuration...');
+    console.log('Host:', process.env.SMTP_HOST);
+    console.log('User:', process.env.SMTP_USER);
+    
     await transporter.verify();
-    console.log('✅ SMTP connection successful!');
-
-    console.log('\n📤 Sending test email...');
-    const info = await transporter.sendMail({
-      from: `"Test" <${process.env.SMTP_USER}>`,
+    console.log('✅ SMTP connection verified!');
+    
+    const result = await transporter.sendMail({
+      from: `"HyperVolt" <${process.env.SMTP_USER}>`,
       to: process.env.OWNER_EMAIL || process.env.SMTP_USER,
-      subject: 'Test Email from B2B Platform',
+      subject: 'Test Email from HyperVolt',
       html: `
-        <h1>Test Email</h1>
-        <p>If you receive this, your email configuration is working!</p>
+        <h1>✅ Test Email</h1>
+        <p>Your email configuration is working correctly!</p>
         <p>Time: ${new Date().toLocaleString()}</p>
       `
     });
-
-    console.log('✅ Test email sent successfully!');
-    console.log('Message ID:', info.messageId);
-    console.log('Check your inbox at:', process.env.OWNER_EMAIL || process.env.SMTP_USER);
+    
+    console.log('✅ Test email sent:', result.messageId);
   } catch (error) {
-    console.error('❌ Email test failed:');
-    console.error('Error message:', error.message);
-    console.error('Error code:', error.code);
-    if (error.response) console.error('Server response:', error.response);
+    console.error('❌ Email test failed:', error.message);
+    console.error('Full error:', error);
   }
 }
 
-testEmailConnection();
+testEmail();

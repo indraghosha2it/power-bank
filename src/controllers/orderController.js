@@ -3602,6 +3602,269 @@ const getOrderById = async (req, res) => {
 // @desc    Update order status (Admin/Moderator/Super Admin)
 // @route   PUT /api/orders/:id/status
 // @access  Private (Admin/Moderator/Super Admin)
+// const updateOrderStatus = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { 
+//       orderStatus, 
+//       trackingNumber, 
+//       deliveryNote, 
+//       cancellationReason, 
+//       rejectionReason,
+//       courierService 
+//     } = req.body;
+    
+//     const order = await Order.findById(id);
+    
+//     if (!order) {
+//       return res.status(404).json({ success: false, error: 'Order not found' });
+//     }
+    
+//     // Check if order is cancelled - no further actions allowed
+//     if (order.orderStatus === 'cancelled') {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is cancelled. No further actions can be performed.' 
+//       });
+//     }
+    
+//     // Check if order is delivered - no further actions allowed
+//     if (order.orderStatus === 'delivered') {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is already delivered. Status cannot be changed.' 
+//       });
+//     }
+    
+//     // Check if order has courier assigned - no manual changes allowed
+//     if (order.orderStatus === 'courier_assigned') {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is with courier. Status cannot be changed manually.' 
+//       });
+//     }
+    
+//     // Check if order is in courier statuses - no manual changes
+//     if (['processing', 'shipped', 'out_for_delivery'].includes(order.orderStatus)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Order is being handled by courier service. Status cannot be changed manually.' 
+//       });
+//     }
+    
+//     // Define allowed status transitions - COMPLETE FLOW
+//     const allowedTransitions = {
+//       'placed': ['follow_up', 'cancelled'],
+//       'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
+//       'reminder': ['accepted', 'rejected', 'cancelled'],
+//       'accepted': ['approved', 'cancelled'],
+//       'approved': ['ready_to_ship', 'cancelled'],
+//       'ready_to_ship': ['courier_assigned', 'cancelled'],
+//       'rejected': ['cancelled'],
+//       'courier_assigned': [], // No manual changes (courier handles it)
+//       'processing': [], // Courier handles
+//       'shipped': [], // Courier handles
+//       'out_for_delivery': [], // Courier handles
+//       'delivered': [], // No further changes allowed
+//       'cancelled': []  // No further changes allowed
+//     };
+    
+//     const currentStatus = order.orderStatus;
+//     const newStatus = orderStatus;
+//     const userRole = req.user?.role || 'admin';
+    
+//     // Validate status transition
+//     if (currentStatus !== newStatus) {
+//       const allowedNext = allowedTransitions[currentStatus] || [];
+//       if (!allowedNext.includes(newStatus)) {
+//         return res.status(400).json({ 
+//           success: false, 
+//           error: `Invalid status transition from "${currentStatus}" to "${newStatus}". Allowed: ${allowedNext.join(', ')}` 
+//         });
+//       }
+//     }
+    
+//     const oldStatus = order.orderStatus;
+    
+//     // Handle special cases for status changes
+    
+//     // If order is being cancelled
+//     if (orderStatus === 'cancelled' && order.orderStatus !== 'cancelled') {
+//       order.cancelledAt = new Date();
+//       if (cancellationReason) {
+//         order.cancellationReason = cancellationReason;
+//       }
+      
+//       // Restore stock for cancelled order
+//       for (const item of order.items) {
+//         await Product.findByIdAndUpdate(
+//           item.productId,
+//           { $inc: { stockQuantity: item.quantity } }
+//         );
+//       }
+//     }
+    
+//     // If order is being rejected
+//     if (orderStatus === 'rejected' && order.orderStatus !== 'rejected') {
+//       order.cancelledAt = new Date();
+//       if (rejectionReason) {
+//         order.rejectionReason = rejectionReason;
+//       }
+      
+//       // Restore stock for rejected order
+//       for (const item of order.items) {
+//         await Product.findByIdAndUpdate(
+//           item.productId,
+//           { $inc: { stockQuantity: item.quantity } }
+//         );
+//       }
+//     }
+    
+//     // If order is being delivered
+//     if (orderStatus === 'delivered' && order.orderStatus !== 'delivered') {
+//       order.deliveredAt = new Date();
+      
+//       // For COD orders, automatically mark payment as paid when delivered
+//       if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
+//         order.paymentStatus = 'paid';
+//         console.log(`✅ COD order ${order.orderNumber} - Payment auto-updated to Paid on delivery`);
+//       }
+//     }
+    
+//     // If order is being assigned to courier
+//     if (orderStatus === 'courier_assigned' && courierService) {
+//       // Set delivery service info
+//       order.setDeliveryService({
+//         courierName: courierService,
+//         courierSlug: courierService.toLowerCase(),
+//         deliveryStatus: 'processing',
+//         trackingNumber: trackingNumber || null
+//       });
+//     }
+    
+//     // Update order fields
+//     if (orderStatus) order.orderStatus = orderStatus;
+//     if (trackingNumber !== undefined) order.trackingNumber = trackingNumber;
+//     if (deliveryNote !== undefined) order.deliveryNote = deliveryNote;
+    
+//     // Update timestamp based on status
+//     const timestampMap = {
+//       'placed': 'placedAt',
+//       'follow_up': 'followUpAt',
+//       'accepted': 'acceptedAt',
+//       'approved': 'approvedAt',
+//       'ready_to_ship': 'shippedAt',
+//       'courier_assigned': 'shippedAt',
+//       'rejected': 'cancelledAt',
+//       'cancelled': 'cancelledAt',
+//       'reminder': 'reminderAt',
+//       'delivered': 'deliveredAt'
+//     };
+    
+//     if (timestampMap[orderStatus]) {
+//       order[timestampMap[orderStatus]] = new Date();
+//     }
+    
+//     // ========== FIX: Map user role to valid enum value ==========
+//     const userId = req.user?._id;
+//     let userRoleMapped = userRole;
+    
+//     // Map call_center_agent to call_center (valid enum value)
+//     if (userRoleMapped === 'call_center_agent') {
+//       userRoleMapped = 'call_center';
+//     }
+    
+//     // Map customer to user (valid enum value)
+//     if (userRoleMapped === 'customer') {
+//       userRoleMapped = 'user';
+//     }
+    
+//     // Create status note
+//     let statusNote = `Status updated from ${oldStatus} to ${orderStatus}`;
+    
+//     if (orderStatus === 'cancelled' && cancellationReason) {
+//       statusNote = `Cancelled: ${cancellationReason}`;
+//     }
+    
+//     if (orderStatus === 'rejected' && rejectionReason) {
+//       statusNote = `Rejected: ${rejectionReason}`;
+//     }
+    
+//     if (orderStatus === 'delivered') {
+//       statusNote = 'Order delivered successfully';
+//     }
+    
+//     if (orderStatus === 'follow_up') {
+//       statusNote = 'Order sent to call center for follow up';
+//     }
+    
+//     if (orderStatus === 'accepted') {
+//       statusNote = 'Order accepted';
+//     }
+    
+//     if (orderStatus === 'approved') {
+//       statusNote = 'Order approved';
+//     }
+    
+//     if (orderStatus === 'ready_to_ship') {
+//       statusNote = 'Order ready to ship';
+//     }
+    
+//     if (orderStatus === 'courier_assigned') {
+//       statusNote = `Order assigned to ${courierService || 'courier'}`;
+//     }
+    
+//     if (orderStatus === 'reminder') {
+//       statusNote = 'Reminder sent to customer';
+//     }
+    
+//     // Add status history with mapped role
+//     order.addStatusHistory(orderStatus, statusNote, userId, userRoleMapped);
+    
+//     await order.save();
+    
+//     // Send email notifications
+//     if (oldStatus !== orderStatus) {
+//       if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+//         try {
+//           await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, orderStatus);
+//           console.log('✅ Status update email sent to customer for order:', order.orderNumber);
+//         } catch (emailError) {
+//           console.error('❌ Status update email error:', emailError.message);
+//         }
+//       }
+
+//       try {
+//         await sendOrderNotificationToAdmin(order, 'status_update');
+//         console.log('✅ Status update notification sent to admin for order:', order.orderNumber);
+//       } catch (emailError) {
+//         console.error('❌ Admin notification error on status update:', emailError.message);
+//       }
+//     }
+    
+//     // Prepare response message
+//     let responseMessage = `Order status updated to ${orderStatus}`;
+//     if (orderStatus === 'delivered' && order.paymentMethod === 'cod' && order.paymentStatus === 'paid') {
+//       responseMessage = `Order delivered and payment marked as Paid`;
+//     }
+    
+//     res.json({
+//       success: true,
+//       data: order,
+//       message: responseMessage
+//     });
+    
+//   } catch (error) {
+//     console.error('Update order status error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+
+// ========== UPDATE ORDER STATUS - FULL FLOW ==========
+// @desc    Update order status (Admin/Moderator/Super Admin)
+// @route   PUT /api/orders/:id/status
+// @access  Private (Admin/Moderator/Super Admin)
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -3636,23 +3899,15 @@ const updateOrderStatus = async (req, res) => {
       });
     }
     
-    // Check if order has courier assigned - no manual changes allowed
-    if (order.orderStatus === 'courier_assigned') {
+    // Check if order is returned - no further actions allowed
+    if (order.orderStatus === 'returned') {
       return res.status(400).json({ 
         success: false, 
-        error: 'Order is with courier. Status cannot be changed manually.' 
+        error: 'Order is already returned. Status cannot be changed.' 
       });
     }
     
-    // Check if order is in courier statuses - no manual changes
-    if (['processing', 'shipped', 'out_for_delivery'].includes(order.orderStatus)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Order is being handled by courier service. Status cannot be changed manually.' 
-      });
-    }
-    
-    // Define allowed status transitions - COMPLETE FLOW
+    // ========== ALLOWED STATUS TRANSITIONS ==========
     const allowedTransitions = {
       'placed': ['follow_up', 'cancelled'],
       'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
@@ -3661,12 +3916,16 @@ const updateOrderStatus = async (req, res) => {
       'approved': ['ready_to_ship', 'cancelled'],
       'ready_to_ship': ['courier_assigned', 'cancelled'],
       'rejected': ['cancelled'],
-      'courier_assigned': [], // No manual changes (courier handles it)
-      'processing': [], // Courier handles
-      'shipped': [], // Courier handles
-      'out_for_delivery': [], // Courier handles
-      'delivered': [], // No further changes allowed
-      'cancelled': []  // No further changes allowed
+      // ✅ courier_assigned can go to delivered, returned, or cancelled
+      'courier_assigned': ['delivered', 'returned', 'cancelled'],
+      // ✅ processing can also go to delivered, returned, or cancelled
+      'processing': ['delivered', 'returned', 'cancelled'],
+      // ❌ These are handled by courier - no manual changes
+      'shipped': [],
+      'out_for_delivery': [],
+      'delivered': [],
+      'returned': [],
+      'cancelled': []
     };
     
     const currentStatus = order.orderStatus;
@@ -3686,7 +3945,9 @@ const updateOrderStatus = async (req, res) => {
     
     const oldStatus = order.orderStatus;
     
-    // Handle special cases for status changes
+    // ============================================
+    // HANDLE SPECIAL CASES
+    // ============================================
     
     // If order is being cancelled
     if (orderStatus === 'cancelled' && order.orderStatus !== 'cancelled') {
@@ -3720,20 +3981,46 @@ const updateOrderStatus = async (req, res) => {
       }
     }
     
-    // If order is being delivered
+    // ============================================
+    // 🎯 IF ORDER IS BEING DELIVERED - AUTO PAYMENT
+    // ============================================
     if (orderStatus === 'delivered' && order.orderStatus !== 'delivered') {
       order.deliveredAt = new Date();
       
-      // For COD orders, automatically mark payment as paid when delivered
+      // 🔴 AUTO-UPDATE PAYMENT STATUS FOR COD ORDERS
       if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
         order.paymentStatus = 'paid';
         console.log(`✅ COD order ${order.orderNumber} - Payment auto-updated to Paid on delivery`);
+        
+        // Update payment details with timestamp
+        if (!order.paymentDetails) {
+          order.paymentDetails = {};
+        }
+        order.paymentDetails.paidAt = new Date();
+        order.paymentDetails.paidBy = 'System (Auto-updated on delivery by admin)';
       }
     }
     
-    // If order is being assigned to courier
+    // ============================================
+    // 🎯 IF ORDER IS BEING RETURNED
+    // ============================================
+    if (orderStatus === 'returned' && order.orderStatus !== 'returned') {
+      order.cancelledAt = new Date(); // Use cancelledAt or add returnedAt
+      order.rejectionReason = 'Order returned by courier';
+      
+      // Restore stock for returned order
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { stockQuantity: item.quantity } }
+        );
+      }
+    }
+    
+    // ============================================
+    // HANDLE COURIER ASSIGNMENT
+    // ============================================
     if (orderStatus === 'courier_assigned' && courierService) {
-      // Set delivery service info
       order.setDeliveryService({
         courierName: courierService,
         courierSlug: courierService.toLowerCase(),
@@ -3758,23 +4045,21 @@ const updateOrderStatus = async (req, res) => {
       'rejected': 'cancelledAt',
       'cancelled': 'cancelledAt',
       'reminder': 'reminderAt',
-      'delivered': 'deliveredAt'
+      'delivered': 'deliveredAt',
+      'returned': 'cancelledAt' // Use cancelledAt for returned
     };
     
     if (timestampMap[orderStatus]) {
       order[timestampMap[orderStatus]] = new Date();
     }
     
-    // ========== FIX: Map user role to valid enum value ==========
+    // ========== Map user role to valid enum value ==========
     const userId = req.user?._id;
     let userRoleMapped = userRole;
     
-    // Map call_center_agent to call_center (valid enum value)
     if (userRoleMapped === 'call_center_agent') {
       userRoleMapped = 'call_center';
     }
-    
-    // Map customer to user (valid enum value)
     if (userRoleMapped === 'customer') {
       userRoleMapped = 'user';
     }
@@ -3792,6 +4077,17 @@ const updateOrderStatus = async (req, res) => {
     
     if (orderStatus === 'delivered') {
       statusNote = 'Order delivered successfully';
+      if (order.paymentMethod === 'cod' && order.paymentStatus === 'paid') {
+        statusNote += ' - Payment auto-updated to Paid';
+      }
+    }
+    
+    if (orderStatus === 'returned') {
+      statusNote = 'Order returned by courier';
+    }
+    
+    if (orderStatus === 'courier_assigned') {
+      statusNote = `Order assigned to ${courierService || 'courier'}`;
     }
     
     if (orderStatus === 'follow_up') {
@@ -3808,10 +4104,6 @@ const updateOrderStatus = async (req, res) => {
     
     if (orderStatus === 'ready_to_ship') {
       statusNote = 'Order ready to ship';
-    }
-    
-    if (orderStatus === 'courier_assigned') {
-      statusNote = `Order assigned to ${courierService || 'courier'}`;
     }
     
     if (orderStatus === 'reminder') {

@@ -831,7 +831,7 @@ const customerInfoSchema = new mongoose.Schema({
 const orderStatusHistorySchema = new mongoose.Schema({
   status: { 
     type: String, 
-     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed'],
+     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned'],
     required: true 
   },
   note: { 
@@ -1078,7 +1078,7 @@ const orderSchema = new mongoose.Schema({
   // Order Status
   orderStatus: { 
     type: String, 
-     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed'],
+     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed'],
     default: 'placed' 
   },
   
@@ -1146,6 +1146,10 @@ const orderSchema = new mongoose.Schema({
     type: Date, 
     default: null 
   },
+  returnedAt: { 
+  type: Date, 
+  default: null 
+},
   
   rejectionReason: { 
     type: String, 
@@ -1524,7 +1528,8 @@ orderSchema.virtual('statusLabels').get(function() {
     'out_for_delivery': 'Out for Delivery',
     'delivered': 'Delivered',
     'refunded': 'Refunded',
-    'failed': 'Failed'
+    'failed': 'Failed',
+    'returned': 'Returned' 
   };
   return statusMap[this.orderStatus] || this.orderStatus;
 });

@@ -280,6 +280,8 @@ const orderRestrictionRoutes = require('./src/routes/orderRestrictionRoutes');
 const pixelRoutes = require('./src/routes/pixelRoutes');
 // Add with other route imports
 const customCodeRoutes = require('./src/routes/customCodeRoutes');
+const mediaRoutes = require('./src/routes/mediaRoutes');
+
 
 
 
@@ -453,6 +455,9 @@ app.use('/api/pixels', pixelRoutes);
 
 // ... then register the route
 app.use('/api/custom-code', customCodeRoutes);
+app.use('/api/admin/media', mediaRoutes);
+
+
 
 
 
