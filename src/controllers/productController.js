@@ -21,7 +21,6 @@ const extractPublicIdFromUrl = (url) => {
   return null;
 };
 
-// Helper function to update embedded product in category
 // const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {
 //   try {
 //     await Category.findOneAndUpdate(
@@ -49,12 +48,15 @@ const extractPublicIdFromUrl = (url) => {
 //           'products.$.showOnBanner': updateData.showOnBanner,
 //           'products.$.rating': updateData.rating,
 //           'products.$.additionalInfo': updateData.additionalInfo,
+//           'products.$.faqs': updateData.faqs,
 //           'products.$.images': updateData.images,
 //           'products.$.subcategoryId': updateData.subcategoryId,
 //           'products.$.subcategoryName': updateData.subcategoryName,
 //           'products.$.childSubcategoryId': updateData.childSubcategoryId,
 //           'products.$.childSubcategoryName': updateData.childSubcategoryName,
 //           'products.$.isActive': updateData.isActive,
+//           'products.$.updatedBy': updateData.updatedBy, // ADD THIS
+//           'products.$.lastUpdatedAt': updateData.lastUpdatedAt, // ADD THIS
 //           'products.$.updatedAt': new Date()
 //         }
 //       }
@@ -65,7 +67,6 @@ const extractPublicIdFromUrl = (url) => {
 //   }
 // };
 
-// backend/src/controllers/productController.js
 
 const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {
   try {
@@ -83,6 +84,9 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
           'products.$.regularPrice': updateData.regularPrice,
           'products.$.discountPrice': updateData.discountPrice,
           'products.$.costPerItem': updateData.costPerItem,
+          'products.$.buyingPrice': updateData.buyingPrice, // NEW
+          'products.$.packagingCost': updateData.packagingCost, // NEW
+          'products.$.deliveryCost': updateData.deliveryCost, // NEW
           'products.$.stockQuantity': updateData.stockQuantity,
           'products.$.stockAlertQuantity': updateData.stockAlertQuantity,
           'products.$.skuCode': updateData.skuCode,
@@ -101,8 +105,8 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
           'products.$.childSubcategoryId': updateData.childSubcategoryId,
           'products.$.childSubcategoryName': updateData.childSubcategoryName,
           'products.$.isActive': updateData.isActive,
-          'products.$.updatedBy': updateData.updatedBy, // ADD THIS
-          'products.$.lastUpdatedAt': updateData.lastUpdatedAt, // ADD THIS
+          'products.$.updatedBy': updateData.updatedBy,
+          'products.$.lastUpdatedAt': updateData.lastUpdatedAt,
           'products.$.updatedAt': new Date()
         }
       }
@@ -112,12 +116,6 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
     throw error;
   }
 };
-
-
-
-// backend/src/controllers/productController.js
-
-
 
 // @desc    Create new product
 // @route   POST /api/products
@@ -129,6 +127,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 
 //     const {
 //       productName,
+//       slug, // ADD THIS - Custom slug from frontend
 //       shortDescription,
 //       fullDescription,
 //       category,
@@ -141,6 +140,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       regularPrice,
 //       costPerItem,
 //       discountPrice,
+//       buyingPrice, // ADD THIS
 //       unit,
 //       colors,
 //       deliveryInfo,
@@ -149,7 +149,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       showOnBanner,
 //       rating,
 //       additionalInfo,
-//       faqs, // ADD THIS
+//       faqs,
 //       metaSettings,
 //       images,
 //       barcode,
@@ -166,11 +166,20 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       });
 //     }
 
+//     // ============================================
+//     // BUYING PRICE - Only super_admin and admin can set
+//     // ============================================
+//     let finalBuyingPrice = 0;
+//     if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+//       finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
+//     }
+
 //     // Validation
 //     if (!productName) {
 //       return res.status(400).json({ success: false, error: 'Product name is required' });
 //     }
     
+//     // Check if product name already exists
 //     const existingProduct = await Product.findOne({ 
 //       productName: { $regex: new RegExp(`^${productName}$`, 'i') } 
 //     });
@@ -179,6 +188,41 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       return res.status(400).json({ 
 //         success: false, 
 //         error: `Product name "${productName}" already exists. Please use a different product name.` 
+//       });
+//     }
+
+//     // ============================================
+//     // SLUG VALIDATION - Check if custom slug is provided
+//     // ============================================
+//     let finalSlug = slug;
+//     if (slug) {
+//       // Clean the slug
+//       finalSlug = slug
+//         .toLowerCase()
+//         .trim()
+//         .replace(/[^a-z0-9]+/g, '-')
+//         .replace(/(^-|-$)+/g, '');
+      
+//       // Check if slug already exists
+//       const existingSlug = await Product.findOne({ slug: finalSlug });
+//       if (existingSlug) {
+//         return res.status(400).json({
+//           success: false,
+//           error: `Slug "${finalSlug}" is already taken. Please use a different slug.`
+//         });
+//       }
+//     }
+
+//      if (costPerItem === undefined || costPerItem === null || costPerItem < 0) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Cost per item is required and cannot be negative' 
+//       });
+//     }
+//     if (isNaN(costPerItem)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'Cost per item must be a valid number' 
 //       });
 //     }
 
@@ -216,9 +260,10 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //     if (!category) {
 //       return res.status(400).json({ success: false, error: 'Category is required' });
 //     }
-//     if (!brand) {
-//       return res.status(400).json({ success: false, error: 'Brand is required' });
-//     }
+//     // Brand is now optional - remove this validation
+//     // if (!brand) {
+//     //   return res.status(400).json({ success: false, error: 'Brand is required' });
+//     // }
 //     if (regularPrice <= 0) {
 //       return res.status(400).json({ success: false, error: 'Regular price must be greater than 0' });
 //     }
@@ -261,7 +306,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       }
 //     }
 
-//     // Get brand name from brand ID
+//     // Get brand name from brand ID (if provided)
 //     let brandName = brand;
 //     if (brand && mongoose.Types.ObjectId.isValid(brand)) {
 //       try {
@@ -294,7 +339,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       processedAdditionalInfo = additionalInfo;
 //     }
 
-//     // Process FAQs - ADD THIS
+//     // Process FAQs
 //     let processedFaqs = [];
 //     if (faqs && Array.isArray(faqs)) {
 //       processedFaqs = faqs.filter(faq => 
@@ -321,9 +366,10 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       });
 //     }
 
-//     // Create product
+//     // Create product with updatedBy tracking
 //     const product = await Product.create({
 //       productName,
+//       slug: finalSlug || undefined, // Use custom slug if provided
 //       shortDescription: shortDescription || '',
 //       fullDescription,
 //       category,
@@ -332,12 +378,13 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       subcategoryName,
 //       childSubcategory: childSubcategory || null,
 //       childSubcategoryName,
-//       brand: brandName,
+//       brand: brandName || '', // Brand is now optional
 //       stockQuantity: stockQuantity || 0,
 //       stockAlertQuantity: stockAlertQuantity || 0,
 //       regularPrice: Number(regularPrice),
 //       costPerItem: costPerItem ? Number(costPerItem) : 0,
 //       discountPrice: Number(discountPrice) || 0,
+//       buyingPrice: finalBuyingPrice, // ADD THIS
 //       unit: unit || 'pcs',
 //       colors: colors || [],
 //       deliveryInfo: deliveryInfo || '',
@@ -346,7 +393,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       showOnBanner: showOnBanner || false,
 //       rating: rating || 0,
 //       additionalInfo: processedAdditionalInfo,
-//       faqs: processedFaqs, // ADD THIS
+//       faqs: processedFaqs,
 //       metaSettings: processedMetaSettings,
 //       images: processedImages,
 //       videoUrl: videoUrl || '',
@@ -355,6 +402,8 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       barcode: barcode || undefined,
 //       skuCode: skuCode || undefined,
 //       createdBy: req.user.id,
+//       updatedBy: null,
+//       lastUpdatedAt: null,
 //       isActive: true
 //     });
 
@@ -365,7 +414,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       slug: product.slug,
 //       shortDescription: product.shortDescription,
 //       fullDescription: product.fullDescription,
-//       brand: product.brand,
+//       brand: product.brand || '',
 //       images: processedImages,
 //       regularPrice: product.regularPrice,
 //       discountPrice: product.discountPrice,
@@ -381,13 +430,15 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       showOnBanner: product.showOnBanner,
 //       rating: product.rating,
 //       additionalInfo: processedAdditionalInfo,
-//       faqs: processedFaqs, // ADD THIS
+//       faqs: processedFaqs,
 //       subcategoryId: subcategory || null,
 //       subcategoryName: subcategoryName,
 //       childSubcategoryId: childSubcategory || null,
 //       childSubcategoryName: childSubcategoryName,
 //       isActive: true,
 //       createdBy: req.user.id,
+//       updatedBy: null,
+//       lastUpdatedAt: null,
 //       createdAt: new Date(),
 //       updatedAt: new Date()
 //     };
@@ -439,7 +490,8 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //     await product.populate([
 //       { path: 'category', select: 'name slug' },
 //       { path: 'tags', select: 'name image' },
-//       { path: 'createdBy', select: 'name email role' }
+//       { path: 'createdBy', select: 'name email role' },
+//       { path: 'updatedBy', select: 'name email role' }
 //     ]);
 
 //     res.status(201).json({
@@ -454,7 +506,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 //       if (error.keyPattern && error.keyPattern.slug) {
 //         return res.status(400).json({
 //           success: false,
-//           error: `Product name "${req.body.productName}" already exists. Please use a different product name.`
+//           error: `Slug "${req.body.slug || req.body.productName}" already exists. Please use a different slug.`
 //         });
 //       }
 //       if (error.keyPattern && error.keyPattern.skuCode) {
@@ -478,13 +530,6 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
 
 // backend/src/controllers/productController.js
 
-// backend/src/controllers/productController.js
-
-// @desc    Create new product
-// @route   POST /api/products
-// @access  Private (Super Admin/Admin/Moderator)
-// backend/src/controllers/productController.js
-
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private (Super Admin/Admin/Moderator)
@@ -495,7 +540,7 @@ const createProduct = async (req, res) => {
 
     const {
       productName,
-      slug, // ADD THIS - Custom slug from frontend
+      slug,
       shortDescription,
       fullDescription,
       category,
@@ -506,9 +551,10 @@ const createProduct = async (req, res) => {
       stockAlertQuantity,
       skuCode,
       regularPrice,
-      costPerItem,
       discountPrice,
-      buyingPrice, // ADD THIS
+      buyingPrice,
+      packagingCost, // NEW
+      deliveryCost, // NEW
       unit,
       colors,
       deliveryInfo,
@@ -541,6 +587,17 @@ const createProduct = async (req, res) => {
     if (req.user.role === 'super_admin' || req.user.role === 'admin') {
       finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
     }
+
+    // ============================================
+    // PACKAGING & DELIVERY COSTS
+    // ============================================
+    let finalPackagingCost = packagingCost ? Number(packagingCost) : 0;
+    let finalDeliveryCost = deliveryCost ? Number(deliveryCost) : 0;
+
+    // ============================================
+    // AUTO-CALCULATE COST PER ITEM
+    // ============================================
+    const calculatedCostPerItem = finalBuyingPrice + finalPackagingCost + finalDeliveryCost;
 
     // Validation
     if (!productName) {
@@ -581,19 +638,6 @@ const createProduct = async (req, res) => {
       }
     }
 
-     if (costPerItem === undefined || costPerItem === null || costPerItem < 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Cost per item is required and cannot be negative' 
-      });
-    }
-    if (isNaN(costPerItem)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Cost per item must be a valid number' 
-      });
-    }
-
     // Barcode validation
     if (barcode) {
       const existingProductWithBarcode = await Product.findOne({ barcode });
@@ -628,7 +672,7 @@ const createProduct = async (req, res) => {
     if (!category) {
       return res.status(400).json({ success: false, error: 'Category is required' });
     }
-    // Brand is now optional - remove this validation
+    // Brand is now optional - remove the required validation
     // if (!brand) {
     //   return res.status(400).json({ success: false, error: 'Brand is required' });
     // }
@@ -734,10 +778,10 @@ const createProduct = async (req, res) => {
       });
     }
 
-    // Create product with updatedBy tracking
+    // Create product
     const product = await Product.create({
       productName,
-      slug: finalSlug || undefined, // Use custom slug if provided
+      slug: finalSlug || undefined,
       shortDescription: shortDescription || '',
       fullDescription,
       category,
@@ -746,13 +790,15 @@ const createProduct = async (req, res) => {
       subcategoryName,
       childSubcategory: childSubcategory || null,
       childSubcategoryName,
-      brand: brandName || '', // Brand is now optional
+      brand: brandName || '',
       stockQuantity: stockQuantity || 0,
       stockAlertQuantity: stockAlertQuantity || 0,
       regularPrice: Number(regularPrice),
-      costPerItem: costPerItem ? Number(costPerItem) : 0,
+      costPerItem: calculatedCostPerItem, // Auto-calculated
       discountPrice: Number(discountPrice) || 0,
-      buyingPrice: finalBuyingPrice, // ADD THIS
+      buyingPrice: finalBuyingPrice,
+      packagingCost: finalPackagingCost, // NEW
+      deliveryCost: finalDeliveryCost, // NEW
       unit: unit || 'pcs',
       colors: colors || [],
       deliveryInfo: deliveryInfo || '',
@@ -787,6 +833,9 @@ const createProduct = async (req, res) => {
       regularPrice: product.regularPrice,
       discountPrice: product.discountPrice,
       costPerItem: product.costPerItem,
+      buyingPrice: product.buyingPrice,
+      packagingCost: product.packagingCost, // NEW
+      deliveryCost: product.deliveryCost, // NEW
       stockQuantity: product.stockQuantity,
       stockAlertQuantity: product.stockAlertQuantity,
       skuCode: product.skuCode,
@@ -896,180 +945,7 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Get all products with filters
-// @route   GET /api/products
-// @access  Public
-// const getProducts = async (req, res) => {
-//   try {
-//     const {
-//       page = 1,
-//       limit = 12,
-//       category,
-//       subcategory,
-//       childSubcategory,
-//       brand,
-//       minPrice,
-//       maxPrice,
-//       tags,
-//       isFeatured,
-//       showOnBanner,
-//       unit,
-//       search,
-//       sort = '-createdAt',
-//       minRating,
-//       minStock,
-//       maxStock,
-//       isActive
-//     } = req.query;
 
-//     let query = {};
-
-//     // Only show active products for public users
-//     if (isActive === 'false') {
-//       query.isActive = false;
-//     } else {
-//       query.isActive = true;
-//     }
-
-//     // Category filter
-//     if (category) {
-//       query.category = category;
-//     }
-
-//     // Subcategory filter
-//     if (subcategory) {
-//       query.subcategory = subcategory;
-//     }
-
-//     // Child subcategory filter
-//     if (childSubcategory) {
-//       query.childSubcategory = childSubcategory;
-//     }
-
-//     // Brand filter
-//     if (brand) {
-//       query.brand = { $regex: brand, $options: 'i' };
-//     }
-
-//     // Price range filter
-//     if (minPrice || maxPrice) {
-//       query.$or = [
-//         { regularPrice: {} },
-//         { discountPrice: {} }
-//       ];
-//       if (minPrice) {
-//         query.$or[0].regularPrice.$gte = parseFloat(minPrice);
-//         query.$or[1].discountPrice.$gte = parseFloat(minPrice);
-//       }
-//       if (maxPrice) {
-//         query.$or[0].regularPrice.$lte = parseFloat(maxPrice);
-//         query.$or[1].discountPrice.$lte = parseFloat(maxPrice);
-//       }
-//     }
-
-//     // Tags filter
-//     if (tags) {
-//       const tagArray = Array.isArray(tags) ? tags : [tags];
-//       query.tags = { $in: tagArray };
-//     }
-
-//     // Featured filter
-//     if (isFeatured === 'true') {
-//       query.isFeatured = true;
-//     }
-
-//     // Show on banner filter
-//     if (showOnBanner === 'true') {
-//       query.showOnBanner = true;
-//     }
-
-//     // Unit filter
-//     if (unit) {
-//       query.unit = unit;
-//     }
-
-//     // Rating filter
-//     if (minRating) {
-//       query.rating = { $gte: parseFloat(minRating) };
-//     }
-
-//     // Stock range filter
-//     if (minStock) {
-//       query.stockQuantity = { $gte: parseFloat(minStock) };
-//     }
-//     if (maxStock) {
-//       query.stockQuantity = { ...query.stockQuantity, $lte: parseFloat(maxStock) };
-//     }
-
-//     // Search filter
-//     if (search && search.trim()) {
-//       const searchTerm = search.trim();
-//       const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-//       query.$or = [
-//         { productName: regex },
-//         { brand: regex },
-//         { fullDescription: regex },
-//         { skuCode: regex },
-//         { barcode: regex }
-//       ];
-//     }
-
-//     // Sort options
-//     let sortOption = {};
-//     switch (sort) {
-//       case 'price_asc':
-//         sortOption = { regularPrice: 1 };
-//         break;
-//       case 'price_desc':
-//         sortOption = { regularPrice: -1 };
-//         break;
-//       case 'rating_desc':
-//         sortOption = { rating: -1 };
-//         break;
-//       case 'name_asc':
-//         sortOption = { productName: 1 };
-//         break;
-//       case 'newest':
-//         sortOption = { createdAt: -1 };
-//         break;
-//       case 'popular':
-//         sortOption = { purchaseCount: -1 };
-//         break;
-//       default:
-//         sortOption = { createdAt: -1 };
-//     }
-
-//     const skip = (parseInt(page) - 1) * parseInt(limit);
-
-//     const [products, total] = await Promise.all([
-//       Product.find(query)
-//         .populate('category', 'name slug')
-//         .populate('tags', 'name image')
-//         .sort(sortOption)
-//         .skip(skip)
-//         .limit(parseInt(limit)),
-//       Product.countDocuments(query)
-//     ]);
-
-//     res.json({
-//       success: true,
-//       data: products,
-//       pagination: {
-//         total,
-//         page: parseInt(page),
-//         pages: Math.ceil(total / parseInt(limit)),
-//         limit: parseInt(limit)
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Get products error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Server error while fetching products'
-//     });
-//   }
-// };
-// backend/src/controllers/productController.js
 
 // @desc    Get all products with filters
 // @route   GET /api/products
@@ -1534,9 +1410,6 @@ const getProductById = async (req, res) => {
 
 
 
-// @desc    Update product
-// @route   PUT /api/products/:id
-// @access  Private (Super Admin/Admin/Moderator)
 // const updateProduct = async (req, res) => {
 //   try {
 //     const product = await Product.findById(req.params.id);
@@ -1555,6 +1428,7 @@ const getProductById = async (req, res) => {
 
 //     const {
 //       productName,
+//       slug, 
 //       shortDescription,
 //       fullDescription,
 //       category,
@@ -1567,6 +1441,7 @@ const getProductById = async (req, res) => {
 //       regularPrice,
 //       costPerItem,
 //       discountPrice,
+//       buyingPrice, 
 //       unit,
 //       colors,
 //       deliveryInfo,
@@ -1575,7 +1450,7 @@ const getProductById = async (req, res) => {
 //       showOnBanner,
 //       rating,
 //       additionalInfo,
-//       faqs, // ADD THIS
+//       faqs,
 //       metaSettings,
 //       images,
 //       barcode,
@@ -1585,10 +1460,64 @@ const getProductById = async (req, res) => {
 //     } = req.body;
 
 //     // ============================================
-//     // FIX: Get brand name from brand ID
+//     // BUYING PRICE - Only super_admin and admin can update
 //     // ============================================
+//     let finalBuyingPrice = product.buyingPrice || 0;
+//     if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+//       if (buyingPrice !== undefined) {
+//         finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
+//       }
+//     }
+
+//     // ============================================
+//     // SLUG VALIDATION - Check if custom slug is provided
+//     // ============================================
+//     let finalSlug = product.slug;
+//     if (slug !== undefined && slug !== product.slug) {
+//       if (slug) {
+//         // Clean the slug
+//         finalSlug = slug
+//           .toLowerCase()
+//           .trim()
+//           .replace(/[^a-z0-9]+/g, '-')
+//           .replace(/(^-|-$)+/g, '');
+        
+//         // Check if slug already exists (excluding current product)
+//         const existingSlug = await Product.findOne({ 
+//           slug: finalSlug,
+//           _id: { $ne: product._id }
+//         });
+//         if (existingSlug) {
+//           return res.status(400).json({
+//             success: false,
+//             error: `Slug "${finalSlug}" is already taken. Please use a different slug.`
+//           });
+//         }
+//       } else {
+//         // If slug is empty, auto-generate from product name
+//         finalSlug = productName
+//           ? productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+//           : product.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+//       }
+//     }
+
+//      if (costPerItem !== undefined) {
+//       if (costPerItem < 0) {
+//         return res.status(400).json({ 
+//           success: false, 
+//           error: 'Cost per item cannot be negative' 
+//         });
+//       }
+//       if (isNaN(costPerItem)) {
+//         return res.status(400).json({ 
+//           success: false, 
+//           error: 'Cost per item must be a valid number' 
+//         });
+//       }
+//     }
+
+//     // Get brand name from brand ID (if provided)
 //     let brandName = brand;
-//     // If brand is an ObjectId (from selection), get the brand name
 //     if (brand && mongoose.Types.ObjectId.isValid(brand)) {
 //       try {
 //         const Brand = require('../models/Brand');
@@ -1660,9 +1589,7 @@ const getProductById = async (req, res) => {
 //       processedAdditionalInfo = additionalInfo;
 //     }
 
-//     // ============================================
-//     // Process FAQs - ADD THIS
-//     // ============================================
+//     // Process FAQs
 //     let processedFaqs = product.faqs || [];
 //     if (faqs !== undefined) {
 //       if (Array.isArray(faqs)) {
@@ -1695,15 +1622,17 @@ const getProductById = async (req, res) => {
 
 //     // Update product fields
 //     if (productName) product.productName = productName;
+//     if (slug !== undefined) product.slug = finalSlug; // Update slug if provided
 //     if (shortDescription !== undefined) product.shortDescription = shortDescription || '';
 //     if (fullDescription && fullDescription !== '<p></p>') product.fullDescription = fullDescription;
-//     if (brandName) product.brand = brandName; // Store brand name
+//     if (brandName !== undefined) product.brand = brandName || '';
 //     if (stockQuantity !== undefined) product.stockQuantity = stockQuantity;
 //     if (stockAlertQuantity !== undefined) product.stockAlertQuantity = stockAlertQuantity || 0;
 //     if (skuCode) product.skuCode = skuCode;
 //     if (regularPrice !== undefined) product.regularPrice = regularPrice;
 //     if (costPerItem !== undefined) product.costPerItem = costPerItem || 0;
 //     if (discountPrice !== undefined) product.discountPrice = discountPrice;
+//     if (buyingPrice !== undefined) product.buyingPrice = finalBuyingPrice; // ADD THIS
 //     if (unit) product.unit = unit;
 //     if (colors !== undefined) product.colors = colors || [];
 //     if (deliveryInfo !== undefined) product.deliveryInfo = deliveryInfo || '';
@@ -1712,87 +1641,20 @@ const getProductById = async (req, res) => {
 //     if (showOnBanner !== undefined) product.showOnBanner = showOnBanner;
 //     if (rating !== undefined) product.rating = rating;
 //     if (additionalInfo) product.additionalInfo = processedAdditionalInfo;
-//     if (faqs !== undefined) product.faqs = processedFaqs; // ADD THIS
+//     if (faqs !== undefined) product.faqs = processedFaqs;
 //     if (metaSettings) product.metaSettings = processedMetaSettings;
 //     if (images && Array.isArray(images) && images.length > 0) product.images = processedImages;
 //     if (videoUrl !== undefined) product.videoUrl = videoUrl || '';
 //     if (videoPublicId !== undefined) product.videoPublicId = videoPublicId || '';
 //     if (videoType !== undefined) product.videoType = videoType || 'upload';
     
+//     // UPDATED BY TRACKING
+//     product.updatedBy = req.user.id;
+//     product.lastUpdatedAt = new Date();
+    
 //     // Handle barcode update
 //     if (barcode !== undefined) {
-//       const Barcode = mongoose.model('Barcode');
-//       const oldBarcode = product.barcode;
-      
-//       if (barcode === '') {
-//         if (oldBarcode) {
-//           const barcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
-//           if (barcodeDoc) {
-//             barcodeDoc.productId = null;
-//             barcodeDoc.productSku = '';
-//             barcodeDoc.productName = '';
-//             barcodeDoc.status = 'available';
-//             await barcodeDoc.save();
-//           }
-//         }
-//         product.barcode = undefined;
-//       } else if (barcode !== oldBarcode) {
-//         const existingProductWithBarcode = await Product.findOne({ 
-//           barcode: barcode,
-//           _id: { $ne: product._id }
-//         });
-//         if (existingProductWithBarcode) {
-//           return res.status(400).json({
-//             success: false,
-//             error: `Barcode "${barcode}" is already assigned to product: ${existingProductWithBarcode.productName}`
-//           });
-//         }
-        
-//         if (oldBarcode) {
-//           const oldBarcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
-//           if (oldBarcodeDoc) {
-//             oldBarcodeDoc.productId = null;
-//             oldBarcodeDoc.productSku = '';
-//             oldBarcodeDoc.productName = '';
-//             oldBarcodeDoc.status = 'available';
-//             await oldBarcodeDoc.save();
-//           }
-//         }
-        
-//         let barcodeDoc = await Barcode.findOne({ barcodeNumber: barcode });
-//         if (barcodeDoc) {
-//           barcodeDoc.productId = product._id;
-//           barcodeDoc.productSku = product.skuCode;
-//           barcodeDoc.productName = product.productName;
-//           barcodeDoc.status = 'assigned';
-//           await barcodeDoc.save();
-//         } else {
-//           const { generateAndUploadBarcodeImage } = require('../utils/generateBarcodeImage');
-//           let barcodeImageUrl = '';
-          
-//           try {
-//             const result = await generateAndUploadBarcodeImage(barcode);
-//             barcodeImageUrl = result.url;
-//           } catch (imgError) {
-//             console.error('Failed to generate barcode image:', imgError);
-//           }
-          
-//           barcodeDoc = await Barcode.create({
-//             barcodeNumber: barcode,
-//             format: 'CODE-128',
-//             productId: product._id,
-//             productSku: product.skuCode,
-//             productName: product.productName,
-//             status: 'assigned',
-//             generatedBy: req.user.id,
-//             barcodeImageUrl: barcodeImageUrl,
-//             metadata: {
-//               sequence: parseInt(barcode.slice(1, 9)) || 0
-//             }
-//           });
-//         }
-//         product.barcode = barcode;
-//       }
+//       // ... barcode handling code ...
 //     }
 
 //     // Update category if changed
@@ -1822,13 +1684,15 @@ const getProductById = async (req, res) => {
 //     // Prepare data for embedded product update
 //     const embeddedUpdateData = {
 //       productName: product.productName,
+//       slug: product.slug,
 //       shortDescription: product.shortDescription,
 //       fullDescription: product.fullDescription,
-//       brand: product.brand,
+//       brand: product.brand || '',
 //       images: processedImages,
 //       regularPrice: product.regularPrice,
 //       discountPrice: product.discountPrice,
 //       costPerItem: product.costPerItem,
+//       buyingPrice: product.buyingPrice || 0, // ADD THIS
 //       stockQuantity: product.stockQuantity,
 //       stockAlertQuantity: product.stockAlertQuantity,
 //       skuCode: product.skuCode,
@@ -1840,158 +1704,25 @@ const getProductById = async (req, res) => {
 //       showOnBanner: product.showOnBanner,
 //       rating: product.rating,
 //       additionalInfo: processedAdditionalInfo,
-//       faqs: processedFaqs, // ADD THIS
+//       faqs: processedFaqs,
 //       subcategoryId: product.subcategory,
 //       subcategoryName: product.subcategoryName,
 //       childSubcategoryId: product.childSubcategory,
 //       childSubcategoryName: product.childSubcategoryName,
 //       isActive: product.isActive,
+//       updatedBy: req.user.id,
+//       lastUpdatedAt: new Date(),
 //       updatedAt: new Date()
 //     };
 
-//     // Handle category change
-//     if (category && category !== oldCategory) {
-//       await Category.findByIdAndUpdate(
-//         oldCategory,
-//         {
-//           $pull: { products: { productId: product._id } },
-//           $inc: { productCount: -1 }
-//         }
-//       );
-      
-//       if (oldSubcategoryId) {
-//         await Category.findOneAndUpdate(
-//           { 
-//             _id: oldCategory,
-//             'subcategories._id': oldSubcategoryId
-//           },
-//           { $inc: { 'subcategories.$.productCount': -1 } }
-//         );
-//       }
-      
-//       if (oldChildSubcategoryId && oldSubcategoryId) {
-//         await Category.findOneAndUpdate(
-//           { 
-//             _id: oldCategory,
-//             'subcategories._id': oldSubcategoryId,
-//             'subcategories.children._id': oldChildSubcategoryId
-//           },
-//           { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
-//           {
-//             arrayFilters: [
-//               { 'sub._id': oldSubcategoryId },
-//               { 'child._id': oldChildSubcategoryId }
-//             ]
-//           }
-//         );
-//       }
-      
-//       const newEmbeddedProduct = {
-//         productId: product._id,
-//         ...embeddedUpdateData,
-//         createdBy: req.user.id,
-//         createdAt: product.createdAt
-//       };
-      
-//       await Category.findByIdAndUpdate(
-//         newCategory,
-//         {
-//           $push: { products: newEmbeddedProduct },
-//           $inc: { productCount: 1 }
-//         }
-//       );
-      
-//       if (newSubcategoryId) {
-//         await Category.findOneAndUpdate(
-//           { 
-//             _id: newCategory,
-//             'subcategories._id': newSubcategoryId
-//           },
-//           { $inc: { 'subcategories.$.productCount': 1 } }
-//         );
-//       }
-      
-//       if (newChildSubcategoryId && newSubcategoryId) {
-//         await Category.findOneAndUpdate(
-//           { 
-//             _id: newCategory,
-//             'subcategories._id': newSubcategoryId,
-//             'subcategories.children._id': newChildSubcategoryId
-//           },
-//           { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
-//           {
-//             arrayFilters: [
-//               { 'sub._id': newSubcategoryId },
-//               { 'child._id': newChildSubcategoryId }
-//             ]
-//           }
-//         );
-//       }
-//     } else {
-//       await updateEmbeddedProductInCategory(oldCategory, product._id, embeddedUpdateData);
-      
-//       if (oldSubcategoryId !== newSubcategoryId) {
-//         if (oldSubcategoryId) {
-//           await Category.findOneAndUpdate(
-//             { 
-//               _id: oldCategory,
-//               'subcategories._id': oldSubcategoryId
-//             },
-//             { $inc: { 'subcategories.$.productCount': -1 } }
-//           );
-//         }
-//         if (newSubcategoryId) {
-//           await Category.findOneAndUpdate(
-//             { 
-//               _id: oldCategory,
-//               'subcategories._id': newSubcategoryId
-//             },
-//             { $inc: { 'subcategories.$.productCount': 1 } }
-//           );
-//         }
-//       }
-      
-//       if (oldChildSubcategoryId !== newChildSubcategoryId) {
-//         if (oldChildSubcategoryId && oldSubcategoryId) {
-//           await Category.findOneAndUpdate(
-//             { 
-//               _id: oldCategory,
-//               'subcategories._id': oldSubcategoryId,
-//               'subcategories.children._id': oldChildSubcategoryId
-//             },
-//             { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
-//             {
-//               arrayFilters: [
-//                 { 'sub._id': oldSubcategoryId },
-//                 { 'child._id': oldChildSubcategoryId }
-//               ]
-//             }
-//           );
-//         }
-//         if (newChildSubcategoryId && newSubcategoryId) {
-//           await Category.findOneAndUpdate(
-//             { 
-//               _id: oldCategory,
-//               'subcategories._id': newSubcategoryId,
-//               'subcategories.children._id': newChildSubcategoryId
-//             },
-//             { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
-//             {
-//               arrayFilters: [
-//                 { 'sub._id': newSubcategoryId },
-//                 { 'child._id': newChildSubcategoryId }
-//               ]
-//             }
-//           );
-//         }
-//       }
-//     }
+//     // ... rest of update logic (category change handling) ...
 
 //     // Populate references for response
 //     await product.populate([
 //       { path: 'category', select: 'name slug' },
 //       { path: 'tags', select: 'name image' },
-//       { path: 'createdBy', select: 'name email role' }
+//       { path: 'createdBy', select: 'name email role' },
+//       { path: 'updatedBy', select: 'name email role' }
 //     ]);
 
 //     res.json({
@@ -2009,9 +1740,6 @@ const getProductById = async (req, res) => {
 // };
 
 
-// backend/src/controllers/productController.js
-
-// @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private (Super Admin/Admin/Moderator)
 const updateProduct = async (req, res) => {
@@ -2032,7 +1760,7 @@ const updateProduct = async (req, res) => {
 
     const {
       productName,
-      slug, 
+      slug,
       shortDescription,
       fullDescription,
       category,
@@ -2043,9 +1771,10 @@ const updateProduct = async (req, res) => {
       stockAlertQuantity,
       skuCode,
       regularPrice,
-      costPerItem,
       discountPrice,
-      buyingPrice, 
+      buyingPrice,
+      packagingCost, // NEW
+      deliveryCost, // NEW
       unit,
       colors,
       deliveryInfo,
@@ -2072,6 +1801,24 @@ const updateProduct = async (req, res) => {
         finalBuyingPrice = buyingPrice ? Number(buyingPrice) : 0;
       }
     }
+
+    // ============================================
+    // PACKAGING & DELIVERY COSTS - Can be updated by anyone with permission
+    // ============================================
+    let finalPackagingCost = product.packagingCost || 0;
+    if (packagingCost !== undefined) {
+      finalPackagingCost = packagingCost ? Number(packagingCost) : 0;
+    }
+
+    let finalDeliveryCost = product.deliveryCost || 0;
+    if (deliveryCost !== undefined) {
+      finalDeliveryCost = deliveryCost ? Number(deliveryCost) : 0;
+    }
+
+    // ============================================
+    // AUTO-CALCULATE COST PER ITEM
+    // ============================================
+    const calculatedCostPerItem = finalBuyingPrice + finalPackagingCost + finalDeliveryCost;
 
     // ============================================
     // SLUG VALIDATION - Check if custom slug is provided
@@ -2102,21 +1849,6 @@ const updateProduct = async (req, res) => {
         finalSlug = productName
           ? productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
           : product.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      }
-    }
-
-     if (costPerItem !== undefined) {
-      if (costPerItem < 0) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Cost per item cannot be negative' 
-        });
-      }
-      if (isNaN(costPerItem)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Cost per item must be a valid number' 
-        });
       }
     }
 
@@ -2224,9 +1956,11 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // Update product fields
+    // ============================================
+    // UPDATE PRODUCT FIELDS
+    // ============================================
     if (productName) product.productName = productName;
-    if (slug !== undefined) product.slug = finalSlug; // Update slug if provided
+    if (slug !== undefined) product.slug = finalSlug;
     if (shortDescription !== undefined) product.shortDescription = shortDescription || '';
     if (fullDescription && fullDescription !== '<p></p>') product.fullDescription = fullDescription;
     if (brandName !== undefined) product.brand = brandName || '';
@@ -2234,9 +1968,18 @@ const updateProduct = async (req, res) => {
     if (stockAlertQuantity !== undefined) product.stockAlertQuantity = stockAlertQuantity || 0;
     if (skuCode) product.skuCode = skuCode;
     if (regularPrice !== undefined) product.regularPrice = regularPrice;
-    if (costPerItem !== undefined) product.costPerItem = costPerItem || 0;
+    
+    // COST PER ITEM IS AUTO-CALCULATED - DO NOT ALLOW MANUAL UPDATE
+    // if (costPerItem !== undefined) {
+    //   // Ignore manual costPerItem input, use calculated value
+    //   console.log('Cost per item is auto-calculated, manual value ignored');
+    // }
+    product.costPerItem = calculatedCostPerItem; // Auto-calculated
+    
     if (discountPrice !== undefined) product.discountPrice = discountPrice;
-    if (buyingPrice !== undefined) product.buyingPrice = finalBuyingPrice; // ADD THIS
+    if (buyingPrice !== undefined) product.buyingPrice = finalBuyingPrice;
+    if (packagingCost !== undefined) product.packagingCost = finalPackagingCost; // NEW
+    if (deliveryCost !== undefined) product.deliveryCost = finalDeliveryCost; // NEW
     if (unit) product.unit = unit;
     if (colors !== undefined) product.colors = colors || [];
     if (deliveryInfo !== undefined) product.deliveryInfo = deliveryInfo || '';
@@ -2258,7 +2001,78 @@ const updateProduct = async (req, res) => {
     
     // Handle barcode update
     if (barcode !== undefined) {
-      // ... barcode handling code ...
+      const Barcode = mongoose.model('Barcode');
+      const oldBarcode = product.barcode;
+      
+      if (barcode === '') {
+        if (oldBarcode) {
+          const barcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
+          if (barcodeDoc) {
+            barcodeDoc.productId = null;
+            barcodeDoc.productSku = '';
+            barcodeDoc.productName = '';
+            barcodeDoc.status = 'available';
+            await barcodeDoc.save();
+          }
+        }
+        product.barcode = undefined;
+      } else if (barcode !== oldBarcode) {
+        const existingProductWithBarcode = await Product.findOne({ 
+          barcode: barcode,
+          _id: { $ne: product._id }
+        });
+        if (existingProductWithBarcode) {
+          return res.status(400).json({
+            success: false,
+            error: `Barcode "${barcode}" is already assigned to product: ${existingProductWithBarcode.productName}`
+          });
+        }
+        
+        if (oldBarcode) {
+          const oldBarcodeDoc = await Barcode.findOne({ barcodeNumber: oldBarcode });
+          if (oldBarcodeDoc) {
+            oldBarcodeDoc.productId = null;
+            oldBarcodeDoc.productSku = '';
+            oldBarcodeDoc.productName = '';
+            oldBarcodeDoc.status = 'available';
+            await oldBarcodeDoc.save();
+          }
+        }
+        
+        let barcodeDoc = await Barcode.findOne({ barcodeNumber: barcode });
+        if (barcodeDoc) {
+          barcodeDoc.productId = product._id;
+          barcodeDoc.productSku = product.skuCode;
+          barcodeDoc.productName = product.productName;
+          barcodeDoc.status = 'assigned';
+          await barcodeDoc.save();
+        } else {
+          const { generateAndUploadBarcodeImage } = require('../utils/generateBarcodeImage');
+          let barcodeImageUrl = '';
+          
+          try {
+            const result = await generateAndUploadBarcodeImage(barcode);
+            barcodeImageUrl = result.url;
+          } catch (imgError) {
+            console.error('Failed to generate barcode image:', imgError);
+          }
+          
+          barcodeDoc = await Barcode.create({
+            barcodeNumber: barcode,
+            format: 'CODE-128',
+            productId: product._id,
+            productSku: product.skuCode,
+            productName: product.productName,
+            status: 'assigned',
+            generatedBy: req.user.id,
+            barcodeImageUrl: barcodeImageUrl,
+            metadata: {
+              sequence: parseInt(barcode.slice(1, 9)) || 0
+            }
+          });
+        }
+        product.barcode = barcode;
+      }
     }
 
     // Update category if changed
@@ -2285,7 +2099,9 @@ const updateProduct = async (req, res) => {
 
     await product.save();
 
-    // Prepare data for embedded product update
+    // ============================================
+    // PREPARE DATA FOR EMBEDDED PRODUCT UPDATE
+    // ============================================
     const embeddedUpdateData = {
       productName: product.productName,
       slug: product.slug,
@@ -2296,7 +2112,9 @@ const updateProduct = async (req, res) => {
       regularPrice: product.regularPrice,
       discountPrice: product.discountPrice,
       costPerItem: product.costPerItem,
-      buyingPrice: product.buyingPrice || 0, // ADD THIS
+      buyingPrice: product.buyingPrice || 0,
+      packagingCost: product.packagingCost || 0, // NEW
+      deliveryCost: product.deliveryCost || 0, // NEW
       stockQuantity: product.stockQuantity,
       stockAlertQuantity: product.stockAlertQuantity,
       skuCode: product.skuCode,
@@ -2319,7 +2137,143 @@ const updateProduct = async (req, res) => {
       updatedAt: new Date()
     };
 
-    // ... rest of update logic (category change handling) ...
+    // Handle category change
+    if (category && category !== oldCategory) {
+      await Category.findByIdAndUpdate(
+        oldCategory,
+        {
+          $pull: { products: { productId: product._id } },
+          $inc: { productCount: -1 }
+        }
+      );
+      
+      if (oldSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: oldCategory,
+            'subcategories._id': oldSubcategoryId
+          },
+          { $inc: { 'subcategories.$.productCount': -1 } }
+        );
+      }
+      
+      if (oldChildSubcategoryId && oldSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: oldCategory,
+            'subcategories._id': oldSubcategoryId,
+            'subcategories.children._id': oldChildSubcategoryId
+          },
+          { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
+          {
+            arrayFilters: [
+              { 'sub._id': oldSubcategoryId },
+              { 'child._id': oldChildSubcategoryId }
+            ]
+          }
+        );
+      }
+      
+      const newEmbeddedProduct = {
+        productId: product._id,
+        ...embeddedUpdateData,
+        createdBy: req.user.id,
+        createdAt: product.createdAt
+      };
+      
+      await Category.findByIdAndUpdate(
+        newCategory,
+        {
+          $push: { products: newEmbeddedProduct },
+          $inc: { productCount: 1 }
+        }
+      );
+      
+      if (newSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: newCategory,
+            'subcategories._id': newSubcategoryId
+          },
+          { $inc: { 'subcategories.$.productCount': 1 } }
+        );
+      }
+      
+      if (newChildSubcategoryId && newSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: newCategory,
+            'subcategories._id': newSubcategoryId,
+            'subcategories.children._id': newChildSubcategoryId
+          },
+          { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
+          {
+            arrayFilters: [
+              { 'sub._id': newSubcategoryId },
+              { 'child._id': newChildSubcategoryId }
+            ]
+          }
+        );
+      }
+    } else {
+      await updateEmbeddedProductInCategory(oldCategory, product._id, embeddedUpdateData);
+      
+      if (oldSubcategoryId !== newSubcategoryId) {
+        if (oldSubcategoryId) {
+          await Category.findOneAndUpdate(
+            { 
+              _id: oldCategory,
+              'subcategories._id': oldSubcategoryId
+            },
+            { $inc: { 'subcategories.$.productCount': -1 } }
+          );
+        }
+        if (newSubcategoryId) {
+          await Category.findOneAndUpdate(
+            { 
+              _id: oldCategory,
+              'subcategories._id': newSubcategoryId
+            },
+            { $inc: { 'subcategories.$.productCount': 1 } }
+          );
+        }
+      }
+      
+      if (oldChildSubcategoryId !== newChildSubcategoryId) {
+        if (oldChildSubcategoryId && oldSubcategoryId) {
+          await Category.findOneAndUpdate(
+            { 
+              _id: oldCategory,
+              'subcategories._id': oldSubcategoryId,
+              'subcategories.children._id': oldChildSubcategoryId
+            },
+            { $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 } },
+            {
+              arrayFilters: [
+                { 'sub._id': oldSubcategoryId },
+                { 'child._id': oldChildSubcategoryId }
+              ]
+            }
+          );
+        }
+        if (newChildSubcategoryId && newSubcategoryId) {
+          await Category.findOneAndUpdate(
+            { 
+              _id: oldCategory,
+              'subcategories._id': newSubcategoryId,
+              'subcategories.children._id': newChildSubcategoryId
+            },
+            { $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 } },
+            {
+              arrayFilters: [
+                { 'sub._id': newSubcategoryId },
+                { 'child._id': newChildSubcategoryId }
+              ]
+            }
+          );
+        }
+      }
+    }
 
     // Populate references for response
     await product.populate([
@@ -2342,6 +2296,8 @@ const updateProduct = async (req, res) => {
     });
   }
 };
+
+
 
 // @desc    Delete product
 // @route   DELETE /api/products/:id
