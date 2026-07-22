@@ -1064,7 +1064,7 @@ const getStatusLabel = (status) => {
     'rejected': 'Rejected',
     'cancelled': 'Cancelled',
     'reminder': 'Reminder',
-    'processing': 'Processing',
+    'processing': 'Courier Assigned',
     'shipped': 'Shipped',
     'out_for_delivery': 'Out for Delivery',
     'delivered': 'Delivered',
@@ -1312,6 +1312,99 @@ const generateCustomerInfoHTML = (order) => {
 /**
  * Generate delivery info HTML
  */
+// const generateDeliveryInfoHTML = (order) => {
+//   const hasDeliveryNote = order.deliveryNote && order.deliveryNote.trim() !== '';
+//   const hasTrackingNumber = order.trackingNumber && order.trackingNumber.trim() !== '';
+//   const hasDeliveredDate = order.deliveredAt && order.orderStatus === 'delivered';
+//   const hasCancellationReason = order.cancellationReason && order.cancellationReason.trim() !== '' && order.orderStatus === 'cancelled';
+//   const hasRejectionReason = order.rejectionReason && order.rejectionReason.trim() !== '' && order.orderStatus === 'rejected';
+  
+//   if (!hasDeliveryNote && !hasTrackingNumber && !hasDeliveredDate && !hasCancellationReason && !hasRejectionReason) {
+//     return '';
+//   }
+  
+//   let bgColor = '#F0F7FA';
+//   let borderColor = '#0D506F';
+//   let titleColor = '#1A1A2E';
+//   let titleIcon = '📝';
+  
+//   if (order.orderStatus === 'delivered') {
+//     bgColor = '#F0FDF4';
+//     borderColor = '#22C55E';
+//     titleColor = '#22C55E';
+//     titleIcon = '✅';
+//   } else if (['shipped', 'out_for_delivery'].includes(order.orderStatus)) {
+//     bgColor = '#F0F7FA';
+//     borderColor = '#06B6D4';
+//     titleColor = '#06B6D4';
+//     titleIcon = '🚚';
+//   } else if (order.orderStatus === 'cancelled' || order.orderStatus === 'rejected') {
+//     bgColor = '#FEF2F2';
+//     borderColor = '#EF4444';
+//     titleColor = '#EF4444';
+//     titleIcon = '❌';
+//   }
+  
+//   let reasonText = '';
+//   if (order.orderStatus === 'cancelled' && hasCancellationReason) {
+//     reasonText = `Cancellation Reason: ${order.cancellationReason}`;
+//   } else if (order.orderStatus === 'rejected' && hasRejectionReason) {
+//     reasonText = `Rejection Reason: ${order.rejectionReason}`;
+//   }
+  
+//   return `
+//     <div style="background: ${bgColor}; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${borderColor}; border: 1px solid ${borderColor}30;">
+//       <h2 style="margin: 0 0 15px 0; color: ${titleColor}; font-size: 18px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+//         <span>${titleIcon}</span> <span>${getStatusLabel(order.orderStatus)}</span>
+//       </h2>
+//       <table style="width: 100%; border-collapse: collapse;">
+//         ${reasonText ? `
+//         <tr>
+//           <td style="padding: 8px 0; width: 140px; color: #64748B;"><strong>${order.orderStatus === 'cancelled' ? 'Cancellation' : 'Rejection'} Reason:</strong></td>
+//           <td><div style="background: #FFFFFF; padding: 12px; border-radius: 8px; margin-top: 5px; color: ${borderColor}; border: 1px solid ${borderColor}30;">${reasonText}</div></td>
+//         </tr>
+//         ` : ''}
+//         ${hasDeliveredDate ? `
+//         <tr>
+//           <td style="padding: 8px 0; width: 140px; color: #64748B;"><strong>Delivered Date:</strong></td>
+//           <td style="color: #1A1A2E;">${formatDate(order.deliveredAt)}</td>
+//         </tr>
+//         ` : ''}
+//         ${hasTrackingNumber ? `
+//         <tr>
+//           <td style="padding: 8px 0; color: #64748B;"><strong>Tracking Number:</strong></td>
+//           <td><code style="background: #FFFFFF; padding: 4px 8px; border-radius: 4px; color: #06B6D4; border: 1px solid #0D506F30; font-weight: 600;">${order.trackingNumber}</code></td>
+//         </tr>
+//         ` : ''}
+//         ${order.deliveryService?.courierName ? `
+//         <tr>
+//           <td style="padding: 8px 0; color: #64748B;"><strong>Courier:</strong></td>
+//           <td style="color: #1A1A2E; font-weight: 600;">${order.deliveryService.courierName}</td>
+//         </tr>
+//         ` : ''}
+//         ${order.deliveryService?.trackingUrl ? `
+//         <tr>
+//           <td style="padding: 8px 0; color: #64748B;"><strong>Track Link:</strong></td>
+//           <td><a href="${order.deliveryService.trackingUrl}" target="_blank" style="color: #06B6D4; text-decoration: none; font-weight: 600;">Track Your Order</a></td>
+//         </tr>
+//         ` : ''}
+//         ${hasDeliveryNote ? `
+//         <tr>
+//           <td style="padding: 8px 0; color: #64748B;"><strong>Delivery Note:</strong></td>
+//           <td><div style="background: #FFFFFF; padding: 12px; border-radius: 8px; margin-top: 5px; color: #1A1A2E; border: 1px solid #0D506F30;">${order.deliveryNote}</div></td>
+//         </tr>
+//         ` : ''}
+//       </table>
+//     </div>
+//   `;
+// };
+
+
+// In orderEmailService.js - Update the deliveryInfoHTML function
+
+/**
+ * Generate delivery info HTML
+ */
 const generateDeliveryInfoHTML = (order) => {
   const hasDeliveryNote = order.deliveryNote && order.deliveryNote.trim() !== '';
   const hasTrackingNumber = order.trackingNumber && order.trackingNumber.trim() !== '';
@@ -1319,7 +1412,12 @@ const generateDeliveryInfoHTML = (order) => {
   const hasCancellationReason = order.cancellationReason && order.cancellationReason.trim() !== '' && order.orderStatus === 'cancelled';
   const hasRejectionReason = order.rejectionReason && order.rejectionReason.trim() !== '' && order.orderStatus === 'rejected';
   
-  if (!hasDeliveryNote && !hasTrackingNumber && !hasDeliveredDate && !hasCancellationReason && !hasRejectionReason) {
+  // Check for courier info
+  const hasCourier = order.deliveryService && order.deliveryService.courierName;
+  const hasTrackingUrl = order.deliveryService && order.deliveryService.trackingUrl;
+  const hasCourierOrderId = order.deliveryService && order.deliveryService.courierOrderId;
+  
+  if (!hasDeliveryNote && !hasTrackingNumber && !hasDeliveredDate && !hasCancellationReason && !hasRejectionReason && !hasCourier) {
     return '';
   }
   
@@ -1338,6 +1436,11 @@ const generateDeliveryInfoHTML = (order) => {
     borderColor = '#06B6D4';
     titleColor = '#06B6D4';
     titleIcon = '🚚';
+  } else if (order.orderStatus === 'processing' || order.orderStatus === 'courier_assigned') {
+    bgColor = '#F0F7FA';
+    borderColor = '#06B6D4';
+    titleColor = '#06B6D4';
+    titleIcon = '📦';
   } else if (order.orderStatus === 'cancelled' || order.orderStatus === 'rejected') {
     bgColor = '#FEF2F2';
     borderColor = '#EF4444';
@@ -1376,16 +1479,22 @@ const generateDeliveryInfoHTML = (order) => {
           <td><code style="background: #FFFFFF; padding: 4px 8px; border-radius: 4px; color: #06B6D4; border: 1px solid #0D506F30; font-weight: 600;">${order.trackingNumber}</code></td>
         </tr>
         ` : ''}
-        ${order.deliveryService?.courierName ? `
+        ${hasCourier ? `
         <tr>
-          <td style="padding: 8px 0; color: #64748B;"><strong>Courier:</strong></td>
+          <td style="padding: 8px 0; color: #64748B;"><strong>Courier Service:</strong></td>
           <td style="color: #1A1A2E; font-weight: 600;">${order.deliveryService.courierName}</td>
         </tr>
         ` : ''}
-        ${order.deliveryService?.trackingUrl ? `
+        ${hasCourierOrderId ? `
         <tr>
-          <td style="padding: 8px 0; color: #64748B;"><strong>Track Link:</strong></td>
-          <td><a href="${order.deliveryService.trackingUrl}" target="_blank" style="color: #06B6D4; text-decoration: none; font-weight: 600;">Track Your Order</a></td>
+          <td style="padding: 8px 0; color: #64748B;"><strong>Courier Order ID:</strong></td>
+          <td style="color: #1A1A2E; font-weight: 600;">${order.deliveryService.courierOrderId}</td>
+        </tr>
+        ` : ''}
+        ${hasTrackingUrl ? `
+        <tr>
+          <td style="padding: 8px 0; color: #64748B;"><strong>Track Your Order:</strong></td>
+          <td><a href="${order.deliveryService.trackingUrl}" target="_blank" style="color: #06B6D4; text-decoration: none; font-weight: 600; display: inline-block; padding: 8px 16px; background: #06B6D4; color: #FFFFFF; border-radius: 8px; background: linear-gradient(135deg, #06B6D4, #0D506F);">📦 Track Order on ${order.deliveryService.courierName || 'Courier'}</a></td>
         </tr>
         ` : ''}
         ${hasDeliveryNote ? `
@@ -1398,7 +1507,6 @@ const generateDeliveryInfoHTML = (order) => {
     </div>
   `;
 };
-
 /**
  * Send order placed email to customer with invoice attachment
  */
@@ -1411,7 +1519,7 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
+    // const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
     const itemsHTML = generateOrderItemsHTML(order.items);
     const summaryHTML = generateOrderSummaryHTML(order);
     const pricingHTML = generatePricingHTML(order);
@@ -1452,7 +1560,7 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
     const mailOptions = {
       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
       to: customerEmail,
-      bcc: adminEmail,  // Send copy to admin
+      // Send copy to admin
       subject: `${statusEmoji} Order ${statusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
       html: `
         <!DOCTYPE html>
@@ -1514,9 +1622,11 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
               
               ${pricingHTML}
               
-              <div style="margin: 35px 0 25px; text-align: center;">
-                <a href="${frontendUrl}/track" class="button">Track Your Order</a>
-              </div>
+            <div style="margin: 35px 0 25px; text-align: center;">
+  <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
+    Track Your Order
+  </a>
+</div>
               
               <div class="footer">
                 <p style="margin-bottom: 5px;">Best regards,</p>
@@ -1635,9 +1745,11 @@ const sendOrderNotificationToAdmin = async (order, eventType = 'new') => {
               
               ${pricingHTML}
               
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${frontendUrl}/admin/orders" class="button">View Order in Dashboard</a>
-              </div>
+             <div style="text-align: center; margin: 30px 0;">
+  <a href="${frontendUrl}/authorize/orders" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none; cursor: pointer;">
+    View Order in Dashboard
+  </a>
+</div>
               
               <div style="background: #F0F7FA; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #0D506F30;">
                 <p style="margin: 0; font-size: 14px; color: #06B6D4;">⚡ Please review and take necessary action.</p>
@@ -1656,6 +1768,198 @@ const sendOrderNotificationToAdmin = async (order, eventType = 'new') => {
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Send order status update email to customer with invoice attachment
+ */
+// const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newStatus) => {
+//   console.log('📧 Sending order status update email with full details...');
+  
+//   try {
+//     if (!customerEmail) {
+//       throw new Error('Customer email is missing');
+//     }
+    
+//     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+//     const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
+//     const newStatusColor = getStatusColor(newStatus);
+//     const newStatusLabel = getStatusLabel(newStatus);
+//     const itemsHTML = generateOrderItemsHTML(order.items);
+//     const summaryHTML = generateOrderSummaryHTML(order);
+//     const pricingHTML = generatePricingHTML(order);
+//     const customerInfoHTML = generateCustomerInfoHTML(order);
+//     const deliveryInfoHTML = generateDeliveryInfoHTML(order);
+
+//     // Generate PDF invoice
+//     let pdfBuffer = null;
+//     try {
+//       console.log('📄 Generating PDF invoice for status update - Order:', order.orderNumber);
+//       const pdfResult = await generateInvoicePDF(order);
+//       if (pdfResult && pdfResult.buffer) {
+//         pdfBuffer = pdfResult.buffer;
+//         console.log('✅ PDF generated successfully, size:', pdfBuffer.length, 'bytes');
+//       } else {
+//         console.warn('⚠️ PDF generation returned no buffer');
+//       }
+//     } catch (pdfError) {
+//       console.error('❌ PDF generation error:', pdfError.message);
+//     }
+    
+//     let statusMessage = '';
+//     let statusEmoji = '';
+    
+//     switch(newStatus) {
+//       case 'placed':
+//         statusMessage = 'Your order has been placed successfully. We are processing your order.';
+//         statusEmoji = '📦';
+//         break;
+//       case 'follow_up':
+//         statusMessage = 'Your order is being reviewed by our team. We will contact you shortly.';
+//         statusEmoji = '📞';
+//         break;
+//       case 'accepted':
+//         statusMessage = 'Great news! Your order has been accepted and is being prepared.';
+//         statusEmoji = '✅';
+//         break;
+//       case 'approved':
+//         statusMessage = 'Your order has been approved and is ready for processing.';
+//         statusEmoji = '✅';
+//         break;
+//       case 'ready_to_ship':
+//         statusMessage = 'Your order is packed and ready to be shipped!';
+//         statusEmoji = '📦';
+//         break;
+//       case 'courier_assigned':
+//         statusMessage = 'A courier has been assigned to deliver your order.';
+//         statusEmoji = '🚚';
+//         break;
+//       case 'processing':
+//         statusMessage = 'Your order is being processed by the courier service.';
+//         statusEmoji = '⚙️';
+//         break;
+//       case 'shipped':
+//         statusMessage = 'Your order has been shipped and is on its way to you!';
+//         statusEmoji = '🚚';
+//         break;
+//       case 'out_for_delivery':
+//         statusMessage = 'Your order is out for delivery! Get ready to receive it.';
+//         statusEmoji = '🚚';
+//         break;
+//       case 'delivered':
+//         statusMessage = 'Your order has been delivered! We hope you love your new products.';
+//         statusEmoji = '🎁';
+//         break;
+//       case 'cancelled':
+//         statusMessage = 'Your order has been cancelled. If you have any questions, please contact our support team.';
+//         statusEmoji = '❌';
+//         break;
+//       case 'rejected':
+//         statusMessage = 'Your order has been rejected. Please contact our support team for more information.';
+//         statusEmoji = '❌';
+//         break;
+//       case 'reminder':
+//         statusMessage = 'A reminder has been set regarding your order.';
+//         statusEmoji = '⏰';
+//         break;
+//       default:
+//         statusMessage = `Your order status has been updated to ${newStatusLabel}.`;
+//         statusEmoji = '📝';
+//     }
+    
+//     const mailOptions = {
+//       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
+//       to: customerEmail,
+//       bcc: adminEmail,  // Send copy to admin
+//       subject: `${statusEmoji} Order ${newStatusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
+//       html: `
+//         <!DOCTYPE html>
+//         <html>
+//         <head>
+//           <meta charset="UTF-8">
+//           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//           <style>
+//             body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
+//             .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
+//             .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
+//             .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
+//             .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
+//             .content { padding: 35px 30px; }
+//             .status-box { background: ${newStatusColor}10; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${newStatusColor}; border: 1px solid ${newStatusColor}30; }
+//             .status-badge { display: inline-block; padding: 8px 24px; background: ${newStatusColor}; color: #FFFFFF; border-radius: 40px; font-weight: 600; text-transform: uppercase; font-size: 14px; }
+//             .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
+//             .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
+//             .button:hover { opacity: 0.9; }
+//             .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
+//             p { color: #64748B; }
+//             strong { color: #1A1A2E; }
+//           </style>
+//         </head>
+//         <body>
+//           <div class="container">
+//             <div class="header">
+//               <h1>
+//                 <span>${statusEmoji}</span>
+//                 <span>Order ${newStatusLabel}!</span>
+//               </h1>
+//               <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//             </div>
+//             <div class="content">
+//               <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
+              
+//               <div class="status-box">
+//                 <div class="status-badge">${newStatusLabel.toUpperCase()}</div>
+//                 <p style="margin: 15px 0 0 0;">${statusMessage}</p>
+//               </div>
+              
+//               ${summaryHTML}
+//               ${customerInfoHTML}
+//               ${deliveryInfoHTML}
+              
+//               <div class="section-title">
+//                 <span>🛍️</span>
+//                 <span>Order Items</span>
+//               </div>
+//               ${itemsHTML}
+              
+//               ${pricingHTML}
+              
+//               <div style="margin: 35px 0 25px; text-align: center;">
+//                 <a href="${frontendUrl}/track" class="button">View Order Details</a>
+//               </div>
+              
+//               <div class="footer">
+//                 <p style="margin-bottom: 5px;">Best regards,</p>
+//                 <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
+//                 <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${process.env.SMTP_USER}</p>
+//                 <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
+//               </div>
+//             </div>
+//           </div>
+//         </body>
+//         </html>
+//       `
+//     };
+
+//     // Attach PDF if available
+//     if (pdfBuffer) {
+//       mailOptions.attachments = [{
+//         filename: `Invoice_${order.orderNumber || order._id.slice(-8).toUpperCase()}.pdf`,
+//         content: pdfBuffer,
+//         contentType: 'application/pdf'
+//       }];
+//       console.log('📎 PDF attachment added to status update email');
+//     }
+
+//     const result = await transporter.sendMail(mailOptions);
+//     console.log('✅ Order status update email sent:', result.messageId);
+//     console.log('📧 Admin copy sent to:', adminEmail);
+//     return { success: true };
+//   } catch (error) {
+//     console.error('❌ Status update email error:', error.message);
+//     return { success: false, error: error.message };
+//   }
+// };
+
 
 /**
  * Send order status update email to customer with invoice attachment
@@ -1722,8 +2026,10 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
         statusEmoji = '🚚';
         break;
       case 'processing':
-        statusMessage = 'Your order is being processed by the courier service.';
-        statusEmoji = '⚙️';
+        // Get courier name if available
+        const courierName = order.deliveryService?.courierName || 'courier';
+        statusMessage = `Your order has been assigned to ${courierName} for delivery.You can now track your order using the tracking details below.`;
+        statusEmoji = '🚚';
         break;
       case 'shipped':
         statusMessage = 'Your order has been shipped and is on its way to you!';
@@ -1757,7 +2063,7 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
     const mailOptions = {
       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
       to: customerEmail,
-      bcc: adminEmail,  // Send copy to admin
+     
       subject: `${statusEmoji} Order ${newStatusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
       html: `
         <!DOCTYPE html>
@@ -1811,9 +2117,11 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
               
               ${pricingHTML}
               
-              <div style="margin: 35px 0 25px; text-align: center;">
-                <a href="${frontendUrl}/track" class="button">View Order Details</a>
-              </div>
+             <div style="margin: 35px 0 25px; text-align: center;">
+  <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
+    View Order Details
+  </a>
+</div>
               
               <div class="footer">
                 <p style="margin-bottom: 5px;">Best regards,</p>
@@ -1847,7 +2155,6 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
     return { success: false, error: error.message };
   }
 };
-
 /**
  * Send payment status update email to customer with invoice attachment
  */
@@ -1860,7 +2167,7 @@ const sendPaymentStatusUpdateEmail = async (order, customerEmail, oldStatus, new
     }
     
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
+    // const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
     const itemsHTML = generateOrderItemsHTML(order.items);
     const summaryHTML = generateOrderSummaryHTML(order);
     const pricingHTML = generatePricingHTML(order);
@@ -1915,7 +2222,7 @@ const sendPaymentStatusUpdateEmail = async (order, customerEmail, oldStatus, new
     const mailOptions = {
       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
       to: customerEmail,
-      bcc: adminEmail,  // Send copy to admin
+      // bcc: adminEmail,  // Send copy to admin
       subject: `${statusEmoji} Payment Status Update - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
       html: `
         <!DOCTYPE html>

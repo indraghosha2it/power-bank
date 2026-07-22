@@ -4823,8 +4823,10 @@ const updateOrder = async (req, res) => {
   }
 };
 
-// ========== CREATE DELIVERY ORDER - UPDATED TO ALLOW READY_TO_SHIP ==========
-// ========== CREATE DELIVERY ORDER - UPDATED TO ALLOW READY_TO_SHIP ==========
+
+
+// ========== CREATE DELIVERY ORDER ==========
+// ========== CREATE DELIVERY ORDER ==========
 // const createDeliveryOrder = async (req, res) => {
 //   try {
 //     const { id } = req.params;
@@ -4839,7 +4841,7 @@ const updateOrder = async (req, res) => {
 //       return res.status(404).json({ success: false, error: 'Order not found' });
 //     }
     
-//     // ========== CHECK IF ORDER IS CANCELLED ==========
+//     // Check if order is cancelled
 //     if (order.orderStatus === 'cancelled') {
 //       return res.status(400).json({ 
 //         success: false, 
@@ -4847,7 +4849,7 @@ const updateOrder = async (req, res) => {
 //       });
 //     }
     
-//     // ========== CHECK IF ORDER ALREADY HAS DELIVERY ==========
+//     // Check if order already has delivery
 //     if (order.deliveryService && order.deliveryService.courierOrderId) {
 //       return res.status(400).json({ 
 //         success: false, 
@@ -4865,6 +4867,7 @@ const updateOrder = async (req, res) => {
 //     }
     
 //     // ========== GET COURIER INTEGRATION ==========
+//     const { getCourierIntegration } = require('../lib/couriers/credentials');
 //     const integration = await getCourierIntegration(courierSlug);
     
 //     if (!integration || !integration.creds || !integration.apiEnabled) {
@@ -4885,12 +4888,22 @@ const updateOrder = async (req, res) => {
 //     };
     
 //     // ========== CREATE DELIVERY ORDER WITH COURIER ==========
+//     const { createCourierOrder } = require('../lib/couriers/factory');
 //     const result = await createCourierOrder(
 //       courierSlug,
 //       integration.creds,
 //       integration.storeConfig,
 //       orderData
 //     );
+    
+//     // ========== LOG THE RESULT FROM COURIER API ==========
+//     console.log('✅ Courier API result:', {
+//       success: result.success,
+//       courierOrderId: result.courierOrderId,
+//       trackingNumber: result.trackingNumber,
+//       trackingUrl: result.trackingUrl,
+//       message: result.message
+//     });
     
 //     if (!result.success) {
 //       return res.status(400).json({ 
@@ -4904,10 +4917,10 @@ const updateOrder = async (req, res) => {
 //       courierId: integration.id,
 //       courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
 //       courierSlug: courierSlug,
-//       trackingNumber: result.trackingNumber,
-//       trackingUrl: result.trackingUrl,
-//       courierOrderId: result.courierOrderId,
-//       courierResponse: result.fullResponse,
+//       trackingNumber: result.trackingNumber || null,
+//       trackingUrl: result.trackingUrl || '',
+//       courierOrderId: result.courierOrderId || null,
+//       courierResponse: result.fullResponse || {},
 //       deliveryStatus: 'processing',
 //       labelUrl: result.labelUrl || '',
 //       invoiceUrl: result.invoiceUrl || '',
@@ -4923,10 +4936,11 @@ const updateOrder = async (req, res) => {
 //     };
     
 //     // ========== UPDATE ORDER STATUS ==========
-//     order.trackingNumber = result.trackingNumber;
+//     order.trackingNumber = result.trackingNumber || null;
 //     order.orderStatus = 'processing';
 //     order.processingAt = new Date();
     
+//     // Add status history
 //     order.addStatusHistory(
 //       'processing', 
 //       `Order assigned to ${courierSlug} courier for delivery`,
@@ -4934,7 +4948,27 @@ const updateOrder = async (req, res) => {
 //       req.user?.role || 'admin'
 //     );
     
+//     // ========== 🔴 DEBUG LOGS - BEFORE SAVE 🔴 ==========
+//     console.log('📦 Order deliveryService before save:', JSON.stringify(order.deliveryService, null, 2));
+//     console.log('📦 Tracking number:', order.deliveryService?.trackingNumber);
+//     console.log('📦 Courier name:', order.deliveryService?.courierName);
+//     console.log('📦 Courier slug:', order.deliveryService?.courierSlug);
+//     console.log('📦 Courier order ID:', order.deliveryService?.courierOrderId);
+//     console.log('📦 Tracking URL:', order.deliveryService?.trackingUrl);
+//     console.log('📦 Result from courier:', {
+//       trackingNumber: result.trackingNumber,
+//       courierOrderId: result.courierOrderId,
+//       trackingUrl: result.trackingUrl
+//     });
+    
+//     // ========== SAVE THE ORDER ==========
 //     await order.save();
+    
+//     // ========== 🔴 DEBUG LOGS - AFTER SAVE 🔴 ==========
+//     console.log('✅ Order saved successfully!');
+//     console.log('📦 Saved deliveryService:', JSON.stringify(order.deliveryService, null, 2));
+//     console.log('📦 Saved tracking number:', order.deliveryService?.trackingNumber);
+//     console.log('📦 Saved courier name:', order.deliveryService?.courierName);
     
 //     res.json({
 //       success: true,
@@ -4953,7 +4987,8 @@ const updateOrder = async (req, res) => {
 //   }
 // };
 
-// ========== CREATE DELIVERY ORDER ==========
+// In orderController.js - update the createDeliveryOrder function
+
 // ========== CREATE DELIVERY ORDER ==========
 const createDeliveryOrder = async (req, res) => {
   try {
@@ -4985,7 +5020,7 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    // ========== ALLOW READY_TO_SHIP, ACCEPTED, AND PROCESSING ==========
+    // Allow ready_to_ship, accepted, and processing
     const allowedStatuses = ['accepted', 'processing', 'ready_to_ship'];
     if (!allowedStatuses.includes(order.orderStatus)) {
       return res.status(400).json({ 
@@ -4994,7 +5029,7 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    // ========== GET COURIER INTEGRATION ==========
+    // Get courier integration
     const { getCourierIntegration } = require('../lib/couriers/credentials');
     const integration = await getCourierIntegration(courierSlug);
     
@@ -5005,7 +5040,7 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    // ========== PREPARE ORDER DATA ==========
+    // Prepare order data
     const orderData = {
       ...order.toObject(),
       orderNumber: order.orderNumber || `ORD-${order._id.toString().slice(-8)}`,
@@ -5015,7 +5050,7 @@ const createDeliveryOrder = async (req, res) => {
       }))
     };
     
-    // ========== CREATE DELIVERY ORDER WITH COURIER ==========
+    // Create delivery order with courier
     const { createCourierOrder } = require('../lib/couriers/factory');
     const result = await createCourierOrder(
       courierSlug,
@@ -5024,7 +5059,6 @@ const createDeliveryOrder = async (req, res) => {
       orderData
     );
     
-    // ========== LOG THE RESULT FROM COURIER API ==========
     console.log('✅ Courier API result:', {
       success: result.success,
       courierOrderId: result.courierOrderId,
@@ -5040,7 +5074,10 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    // ========== UPDATE ORDER WITH DELIVERY INFO ==========
+    // Store old status before updating
+    const oldStatus = order.orderStatus;
+    
+    // Update order with delivery info
     order.deliveryService = {
       courierId: integration.id,
       courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
@@ -5063,7 +5100,7 @@ const createDeliveryOrder = async (req, res) => {
       ]
     };
     
-    // ========== UPDATE ORDER STATUS ==========
+    // Update order status
     order.trackingNumber = result.trackingNumber || null;
     order.orderStatus = 'processing';
     order.processingAt = new Date();
@@ -5076,27 +5113,27 @@ const createDeliveryOrder = async (req, res) => {
       req.user?.role || 'admin'
     );
     
-    // ========== 🔴 DEBUG LOGS - BEFORE SAVE 🔴 ==========
-    console.log('📦 Order deliveryService before save:', JSON.stringify(order.deliveryService, null, 2));
-    console.log('📦 Tracking number:', order.deliveryService?.trackingNumber);
-    console.log('📦 Courier name:', order.deliveryService?.courierName);
-    console.log('📦 Courier slug:', order.deliveryService?.courierSlug);
-    console.log('📦 Courier order ID:', order.deliveryService?.courierOrderId);
-    console.log('📦 Tracking URL:', order.deliveryService?.trackingUrl);
-    console.log('📦 Result from courier:', {
-      trackingNumber: result.trackingNumber,
-      courierOrderId: result.courierOrderId,
-      trackingUrl: result.trackingUrl
-    });
-    
-    // ========== SAVE THE ORDER ==========
     await order.save();
     
-    // ========== 🔴 DEBUG LOGS - AFTER SAVE 🔴 ==========
-    console.log('✅ Order saved successfully!');
-    console.log('📦 Saved deliveryService:', JSON.stringify(order.deliveryService, null, 2));
-    console.log('📦 Saved tracking number:', order.deliveryService?.trackingNumber);
-    console.log('📦 Saved courier name:', order.deliveryService?.courierName);
+    // ========== SEND EMAIL FOR COURIER ASSIGNMENT ==========
+    // Send email to customer about courier assignment
+    if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+      try {
+        // Send courier assigned email
+        await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, 'processing');
+        console.log('✅ Courier assignment email sent to customer for order:', order.orderNumber);
+      } catch (emailError) {
+        console.error('❌ Courier assignment email error:', emailError.message);
+      }
+    }
+
+    // Send admin notification
+    try {
+      await sendOrderNotificationToAdmin(order, 'status_update');
+      console.log('✅ Admin notification sent for courier assignment:', order.orderNumber);
+    } catch (emailError) {
+      console.error('❌ Admin notification error on courier assignment:', emailError.message);
+    }
     
     res.json({
       success: true,
@@ -5115,58 +5152,7 @@ const createDeliveryOrder = async (req, res) => {
   }
 };
 
-// ========== GET ORDER TRACKING ==========
-// const getOrderTracking = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-    
-//     const order = await Order.findById(id);
-//     if (!order) {
-//       return res.status(404).json({ success: false, error: 'Order not found' });
-//     }
-    
-//     if (!order.deliveryService || !order.deliveryService.courierSlug) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         error: 'No delivery service assigned to this order' 
-//       });
-//     }
-    
-//     const { courierSlug, trackingNumber } = order.deliveryService;
-    
-//     const { getCourierIntegration } = require('../lib/credentials');
-//     const integration = await getCourierIntegration(courierSlug);
-    
-//     if (!integration || !integration.creds) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         error: 'Courier is not configured' 
-//       });
-//     }
-    
-//     const { getCourierTracking } = require('../lib/couriers/factory');
-//     const result = await getCourierTracking(
-//       courierSlug,
-//       integration.creds,
-//       trackingNumber
-//     );
-    
-//     if (!result.success) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         error: result.message || 'Failed to get tracking info' 
-//       });
-//     }
-    
-//     res.json({
-//       success: true,
-//       data: result
-//     });
-//   } catch (error) {
-//     console.error('Get tracking error:', error);
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// };
+
 
 // ========== GET ORDER TRACKING ==========
 const getOrderTracking = async (req, res) => {
