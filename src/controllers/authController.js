@@ -769,6 +769,146 @@ const resetPassword = async (req, res) => {
 
 // In authController.js - Update googleAuth function
 
+// const googleAuth = async (req, res) => {
+//   try {
+//     const { idToken } = req.body;
+
+//     if (!idToken) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'ID token is required'
+//       });
+//     }
+
+//     const decodedToken = await admin.auth().verifyIdToken(idToken);
+//     const { email, name, picture, uid, email_verified } = decodedToken;
+
+//     let user = await User.findOne({ email: email.toLowerCase() });
+
+//     if (user) {
+//       // ✅ Update firebaseUid if not set
+//       if (!user.firebaseUid) {
+//         user.firebaseUid = uid;
+//         user.authProvider = 'google';
+//         user.emailVerified = user.emailVerified || email_verified;
+//         await user.save();
+//       }
+      
+//       // ✅ ENSURE Super Admin has permissions
+//       if (user.role === 'super_admin') {
+//         if (!user.permissions || user.permissions.length === 0) {
+//           user.permissions = ['*'];
+//           user.dashboardAccess = [
+//             'analytics', 'users', 'products', 'orders', 'content',
+//             'reviews', 'support', 'settings', 'coupons', 'banners',
+//             'blogs', 'delivery', 'payments', 'roles'
+//           ];
+//           await user.save();
+//         }
+//       }
+//     } else {
+//       // Create new user (regular customer)
+//       const contactPerson = name || email.split('@')[0];
+      
+//       const randomPassword = Math.random().toString(36).slice(-16);
+//       const salt = await bcrypt.genSalt(10);
+//       const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+//       user = new User({
+//         contactPerson: contactPerson,
+//         email: email.toLowerCase(),
+//         phone: '',
+//         whatsapp: '',
+//         country: '',
+//         address: '',
+//         city: '',
+//         zipCode: '',
+//         role: 'customer',
+//         password: hashedPassword,
+//         businessType: 'Retailer',
+//         isActive: true,
+//         emailVerified: email_verified,
+//         registrationStatus: 'completed',
+//         firebaseUid: uid,
+//         authProvider: 'google',
+//         profilePicture: picture || '',
+//         permissions: [],
+//         dashboardAccess: []
+//       });
+
+//       await user.save();
+//     }
+
+//     // ✅ Generate token with ALL permissions
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+//         permissions: user.permissions || []
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     // ✅ Prepare user data with ALL fields
+//     const userData = user.toJSON();
+    
+//     // ✅ ENSURE permissions and dashboardAccess are always present
+//     if (user.role === 'super_admin') {
+//       userData.permissions = ['*'];
+//       userData.dashboardAccess = [
+//         'analytics', 'users', 'products', 'orders', 'content',
+//         'reviews', 'support', 'settings', 'coupons', 'banners',
+//         'blogs', 'delivery', 'payments', 'roles'
+//       ];
+//     } else {
+//       userData.permissions = user.permissions || [];
+//       userData.dashboardAccess = user.dashboardAccess || [];
+//     }
+
+//     const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+//     console.log('✅ Google auth successful for:', email);
+//     console.log('👤 User role:', user.role);
+//     console.log('🔑 Permissions:', userData.permissions);
+//     console.log('📊 Dashboard Access:', userData.dashboardAccess);
+
+//     res.json({
+//       success: true,
+//       message: 'Google authentication successful',
+//       token,
+//       user: userData,
+//       isProfileComplete,
+//       requiresAdditionalInfo: !isProfileComplete
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Google auth error:', error);
+    
+//     if (error.code === 'auth/id-token-expired') {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Google token expired'
+//       });
+//     }
+    
+//     if (error.code === 'auth/argument-error') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid Google token'
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       error: 'Google authentication failed'
+//     });
+//   }
+// };
+
+// In authController.js - Update googleAuth function
+
 const googleAuth = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -794,15 +934,23 @@ const googleAuth = async (req, res) => {
         await user.save();
       }
       
-      // ✅ ENSURE Super Admin has permissions
+      // ✅ ENSURE Super Admin has all page permissions
       if (user.role === 'super_admin') {
-        if (!user.permissions || user.permissions.length === 0) {
+        const allPageKeys = [
+          'dashboard', 'profit_margin',
+          'all_orders', 'incomplete_orders', 'order_restrictions', 'courier_settings', 'courier_score',
+          'all_products', 'create_products', 'product_cost', 'create_category', 'manage_brands', 'manage_tags',
+          'manage_navbar', 'create_banner', 'manage_banner', 'manage_homepage', 'manage_footer',
+          'terms_management', 'privacy_management', 'contact_management', 'about_management',
+          'pixel_settings', 'custom_code',
+          'manage_reviews',
+          'create_users', 'manage_users', 'manage_customers', 'role_management',
+          'delivery_settings', 'media_library', 'email_settings', 'settings'
+        ];
+        
+        if (!user.permissions || user.permissions.length === 0 || !user.permissions.includes('*')) {
           user.permissions = ['*'];
-          user.dashboardAccess = [
-            'analytics', 'users', 'products', 'orders', 'content',
-            'reviews', 'support', 'settings', 'coupons', 'banners',
-            'blogs', 'delivery', 'payments', 'roles'
-          ];
+          user.dashboardAccess = allPageKeys;
           await user.save();
         }
       }
@@ -858,9 +1006,15 @@ const googleAuth = async (req, res) => {
     if (user.role === 'super_admin') {
       userData.permissions = ['*'];
       userData.dashboardAccess = [
-        'analytics', 'users', 'products', 'orders', 'content',
-        'reviews', 'support', 'settings', 'coupons', 'banners',
-        'blogs', 'delivery', 'payments', 'roles'
+        'dashboard', 'profit_margin',
+        'all_orders', 'incomplete_orders', 'order_restrictions', 'courier_settings', 'courier_score',
+        'all_products', 'create_products', 'product_cost', 'create_category', 'manage_brands', 'manage_tags',
+        'manage_navbar', 'create_banner', 'manage_banner', 'manage_homepage', 'manage_footer',
+        'terms_management', 'privacy_management', 'contact_management', 'about_management',
+        'pixel_settings', 'custom_code',
+        'manage_reviews',
+        'create_users', 'manage_users', 'manage_customers', 'role_management',
+        'delivery_settings', 'media_library', 'email_settings', 'settings'
       ];
     } else {
       userData.permissions = user.permissions || [];
