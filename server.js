@@ -60,6 +60,7 @@ const customCodeRoutes = require('./src/routes/customCodeRoutes');
 const mediaRoutes = require('./src/routes/mediaRoutes');
 // Add this with your other route imports
 const productCostRoutes = require('./src/routes/productCostRoutes');
+const emailSettingsRoutes = require('./src/routes/emailSettingsRoutes');
 
 
 
@@ -205,6 +206,11 @@ app.use('/api/footer-admin', footerRoutes);
 // Add with other route registrations
 app.use('/api/homepage', homepageRoutes);
 app.use('/api/admin/homepage', homepageRoutes);
+// In server.js - add this with other route imports
+
+
+
+app.use('/api/admin/email-settings', emailSettingsRoutes);
 
 
 
