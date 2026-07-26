@@ -195,8 +195,34 @@ const updateContact = async (req, res) => {
 // @desc    Reset contact to default
 // @route   POST /api/admin/contact/reset
 // @access  Private (Admin)
+// const resetContact = async (req, res) => {
+//   try {
+//     await Contact.deleteOne({});
+//     const contact = await createDefaultContact();
+
+//     res.json({
+//       success: true,
+//       data: contact,
+//       message: 'Contact page reset to default successfully'
+//     });
+//   } catch (error) {
+//     console.error('Reset contact error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while resetting contact page'
+//     });
+//   }
+// };
+
+// backend/src/controllers/contactController.js
+
+// @desc    Reset contact to default
+// @route   POST /api/admin/contact/reset
+// @access  Private (Admin/Moderator) - ✅ Allow moderators too
 const resetContact = async (req, res) => {
   try {
+    console.log('🔄 Resetting contact to default by:', req.user?.email, '(Role:', req.user?.role, ')');
+    
     await Contact.deleteOne({});
     const contact = await createDefaultContact();
 

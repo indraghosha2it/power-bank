@@ -21,51 +21,6 @@ const extractPublicIdFromUrl = (url) => {
   return null;
 };
 
-// const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {
-//   try {
-//     await Category.findOneAndUpdate(
-//       { 
-//         _id: categoryId,
-//         'products.productId': productId 
-//       },
-//       {
-//         $set: {
-//           'products.$.productName': updateData.productName,
-//           'products.$.shortDescription': updateData.shortDescription,
-//           'products.$.fullDescription': updateData.fullDescription,
-//           'products.$.brand': updateData.brand,
-//           'products.$.regularPrice': updateData.regularPrice,
-//           'products.$.discountPrice': updateData.discountPrice,
-//           'products.$.costPerItem': updateData.costPerItem,
-//           'products.$.stockQuantity': updateData.stockQuantity,
-//           'products.$.stockAlertQuantity': updateData.stockAlertQuantity,
-//           'products.$.skuCode': updateData.skuCode,
-//           'products.$.unit': updateData.unit,
-//           'products.$.colors': updateData.colors,
-//           'products.$.deliveryInfo': updateData.deliveryInfo,
-//           'products.$.tags': updateData.tags,
-//           'products.$.isFeatured': updateData.isFeatured,
-//           'products.$.showOnBanner': updateData.showOnBanner,
-//           'products.$.rating': updateData.rating,
-//           'products.$.additionalInfo': updateData.additionalInfo,
-//           'products.$.faqs': updateData.faqs,
-//           'products.$.images': updateData.images,
-//           'products.$.subcategoryId': updateData.subcategoryId,
-//           'products.$.subcategoryName': updateData.subcategoryName,
-//           'products.$.childSubcategoryId': updateData.childSubcategoryId,
-//           'products.$.childSubcategoryName': updateData.childSubcategoryName,
-//           'products.$.isActive': updateData.isActive,
-//           'products.$.updatedBy': updateData.updatedBy, // ADD THIS
-//           'products.$.lastUpdatedAt': updateData.lastUpdatedAt, // ADD THIS
-//           'products.$.updatedAt': new Date()
-//         }
-//       }
-//     );
-//   } catch (error) {
-//     console.error('Error updating embedded product:', error);
-//     throw error;
-//   }
-// };
 
 
 const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {

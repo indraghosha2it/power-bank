@@ -154,8 +154,34 @@ const updateAbout = async (req, res) => {
 // @desc    Reset about to default
 // @route   POST /api/admin/about/reset
 // @access  Private (Admin)
+// const resetAbout = async (req, res) => {
+//   try {
+//     await About.deleteOne({});
+//     const about = await createDefaultAbout();
+
+//     res.json({
+//       success: true,
+//       data: about,
+//       message: 'About page reset to default successfully'
+//     });
+//   } catch (error) {
+//     console.error('Reset about error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while resetting about page'
+//     });
+//   }
+// };
+
+// backend/src/controllers/aboutController.js
+
+// @desc    Reset about to default
+// @route   POST /api/about/admin/reset
+// @access  Private (Admin/Moderator) - ✅ Allow moderators too
 const resetAbout = async (req, res) => {
   try {
+    console.log('🔄 Resetting about to default by:', req.user?.email, '(Role:', req.user?.role, ')');
+    
     await About.deleteOne({});
     const about = await createDefaultAbout();
 

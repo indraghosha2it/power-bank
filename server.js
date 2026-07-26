@@ -154,6 +154,8 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Admin Routes
+app.use('/api/admin/email-settings', emailSettingsRoutes);
+app.use('/api/admin/media', mediaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminCourierRoutes);
 
@@ -210,7 +212,7 @@ app.use('/api/admin/homepage', homepageRoutes);
 
 
 
-app.use('/api/admin/email-settings', emailSettingsRoutes);
+// app.use('/api/admin/email-settings', emailSettingsRoutes);
 
 
 
@@ -241,7 +243,7 @@ app.use('/api/pixels', pixelRoutes);
 
 // ... then register the route
 app.use('/api/custom-code', customCodeRoutes);
-app.use('/api/admin/media', mediaRoutes);
+// app.use('/api/admin/media', mediaRoutes);
 // Add this with your other route registrations
 app.use('/api/product-cost', productCostRoutes);
 

@@ -24,7 +24,8 @@ const {
   getAgentOrders,           // ✅ ADD THIS
   updateAgentOrderStatus ,
   getAgentDashboard,
-  updateDeliveryStatus
+  updateDeliveryStatus,
+  getFilteredOrderStats
 } = require('../controllers/orderController');
 const { getProfitMarginData, getProductProfitMargin } = require('../controllers/profitMarginController');
 
@@ -67,5 +68,6 @@ router.delete('/:id', protect, isAdmin, deleteOrder);
 
 // Add this with other routes
 router.put('/:id/delivery-status', protect, updateDeliveryStatus);
+router.get('/admin/stats/filtered', protect, isModeratorOrAdmin, getFilteredOrderStats);
 
 module.exports = router;

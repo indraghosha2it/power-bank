@@ -5959,6 +5959,113 @@ const updateDeliveryStatus = async (req, res) => {
   }
 };
 
+// ========== GET FILTERED ORDER STATS ==========
+// @desc    Get order statistics with date filtering
+// @route   GET /api/orders/admin/stats/filtered
+// @access  Private (Admin/Moderator/Super Admin)
+const getFilteredOrderStats = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter
+    let dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter = {
+        createdAt: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate)
+        }
+      };
+    }
+    
+    // ========== GET FILTERED ORDER COUNTS ==========
+    const [
+      totalOrders,
+      placedOrders,
+      followUpOrders,
+      reminderOrders,
+      acceptedOrders,
+      approvedOrders,
+      readyToShipOrders,
+      courierAssignedOrders,
+      rejectedOrders,
+      processingOrders,
+      shippedOrders,
+      outForDeliveryOrders,
+      deliveredOrders,
+      cancelledOrders,
+      returnedOrders,
+      pendingPayment,
+      todayOrders,
+      monthOrders,
+      totalRevenue,
+      monthRevenue
+    ] = await Promise.all([
+      Order.countDocuments(dateFilter),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'placed' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'follow_up' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'reminder' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'accepted' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'approved' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'ready_to_ship' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'courier_assigned' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'rejected' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'processing' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'shipped' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'out_for_delivery' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'delivered' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'cancelled' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'returned' }),
+      Order.countDocuments({ ...dateFilter, paymentStatus: 'pending' }),
+      Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date().setHours(0,0,0,0) } }),
+      Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }),
+      Order.aggregate([
+        { $match: dateFilter },
+        { $group: { _id: null, total: { $sum: '$total' } } }
+      ]),
+      Order.aggregate([
+        { 
+          $match: { 
+            ...dateFilter, 
+            createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } 
+          } 
+        },
+        { $group: { _id: null, total: { $sum: '$total' } } }
+      ])
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalOrders,
+        placedOrders,
+        followUpOrders,
+        reminderOrders,
+        acceptedOrders,
+        approvedOrders,
+        readyToShipOrders,
+        courierAssignedOrders,
+        rejectedOrders,
+        processingOrders,
+        shippedOrders,
+        outForDeliveryOrders,
+        deliveredOrders,
+        cancelledOrders,
+        returnedOrders,
+        pendingPayment,
+        todayOrders,
+        monthOrders,
+        totalRevenue: totalRevenue[0]?.total || 0,
+        monthRevenue: monthRevenue[0]?.total || 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get filtered order stats error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // ========== EXPORTS ==========
 module.exports = {
   createOrder,
@@ -5980,5 +6087,6 @@ module.exports = {
   updateAgentOrderStatus,
   getAgentDashboard,
   checkOrderRestrictions,
-  updateDeliveryStatus
+  updateDeliveryStatus,
+  getFilteredOrderStats
 };
