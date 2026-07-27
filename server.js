@@ -76,9 +76,9 @@ const app = express();
 // CORS MIDDLEWARE
 // ============================================
 const allowedOrigins = [
-  'https://gregarious-profiterole-514180.netlify.app',
+  
   'http://localhost:3000',
-  'https://super-cat-51b8ab.netlify.app',
+  'https://vermillion-sable-1746a8.netlify.app',
   'http://localhost:3001',
   'http://localhost:5000',
   process.env.FRONTEND_URL // Keep this for flexibility
