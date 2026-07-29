@@ -25,7 +25,12 @@ const {
   updateAgentOrderStatus ,
   getAgentDashboard,
   updateDeliveryStatus,
-  getFilteredOrderStats
+  getFilteredOrderStats,
+  addProductToOrder,
+  removeProductFromOrder,
+  updateOrderDiscount,
+  searchProductsForOrder,
+  bulkUpdateOrder
 } = require('../controllers/orderController');
 const { getProfitMarginData, getProductProfitMargin } = require('../controllers/profitMarginController');
 
@@ -35,6 +40,8 @@ router.use(ipMiddleware);
 // ============= PUBLIC ROUTES =============
 router.post('/', optionalProtect, createOrder);
 router.get('/', optionalProtect, getUserOrders);
+router.get('/search-products', protect, isModeratorOrAdmin, searchProductsForOrder);
+
 router.get('/:id', optionalProtect, getOrderById);
 router.put('/:id/cancel', optionalProtect, cancelOrder);
 router.post('/prepare', optionalProtect, prepareOrder);
@@ -69,5 +76,27 @@ router.delete('/:id', protect, isAdmin, deleteOrder);
 // Add this with other routes
 router.put('/:id/delivery-status', protect, updateDeliveryStatus);
 router.get('/admin/stats/filtered', protect, isModeratorOrAdmin, getFilteredOrderStats);
+
+// backend/src/routes/orderRoutes.js - Add these routes
+
+// ... existing routes ...
+
+// ============= ORDER EDITING ROUTES =============
+// Search products for adding to order
+// router.get('/search-products', protect, isModeratorOrAdmin, searchProductsForOrder);
+
+// Add product to order
+router.post('/:id/add-product', protect, isModeratorOrAdmin, addProductToOrder);
+
+// Remove product from order
+router.delete('/:id/remove-product/:itemId', protect, isModeratorOrAdmin, removeProductFromOrder);
+// ============= BULK ORDER UPDATE =============
+// This replaces the entire order in one atomic operation
+router.put('/:id/bulk-update', protect, isModeratorOrAdmin, bulkUpdateOrder);
+
+// Update order discount
+router.put('/:id/discount', protect, isModeratorOrAdmin, updateOrderDiscount);
+
+
 
 module.exports = router;
