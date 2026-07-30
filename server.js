@@ -156,8 +156,9 @@ app.use('/api/dashboard', dashboardRoutes);
 // Admin Routes
 app.use('/api/admin/email-settings', emailSettingsRoutes);
 app.use('/api/admin/media', mediaRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminCourierRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 // Category & Product Routes
 app.use('/api/categories', categoryRoutes);
