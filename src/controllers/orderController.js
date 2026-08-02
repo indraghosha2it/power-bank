@@ -5800,25 +5800,45 @@ const updateOrderStatus = async (req, res) => {
     }
     
     // ========== ALLOWED STATUS TRANSITIONS ==========
-    const allowedTransitions = {
-      'placed': ['follow_up', 'cancelled'],
-      'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
-      'reminder': ['accepted', 'rejected', 'cancelled'],
-      'accepted': ['approved', 'cancelled'],
-      'approved': ['ready_to_ship', 'cancelled'],
-      'ready_to_ship': ['courier_assigned', 'cancelled'],
-      'rejected': ['cancelled'],
-      // ✅ courier_assigned can go to delivered, returned, or cancelled
-      'courier_assigned': ['delivered', 'returned', 'cancelled'],
-      // ✅ processing can also go to delivered, returned, or cancelled
-      'processing': ['delivered', 'returned', 'cancelled'],
-      // ❌ These are handled by courier - no manual changes
-      'shipped': [],
-      'out_for_delivery': [],
-      'delivered': [],
-      'returned': [],
-      'cancelled': []
-    };
+    // const allowedTransitions = {
+    //   'placed': ['follow_up', 'cancelled'],
+    //   'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
+    //   'reminder': ['accepted', 'rejected', 'cancelled'],
+    //   'accepted': ['approved', 'cancelled'],
+    //   'approved': ['ready_to_ship', 'cancelled'],
+    //   'ready_to_ship': ['courier_assigned', 'cancelled'],
+    //   'rejected': ['cancelled'],
+    //   // ✅ courier_assigned can go to delivered, returned, or cancelled
+    //   'courier_assigned': ['delivered', 'returned', 'cancelled'],
+    //   // ✅ processing can also go to delivered, returned, or cancelled
+    //   'processing': ['delivered', 'returned', 'cancelled'],
+    //   // ❌ These are handled by courier - no manual changes
+    //   'shipped': [],
+    //   'out_for_delivery': [],
+    //   'delivered': [],
+    //   'returned': [],
+    //   'cancelled': []
+    // };
+
+    // ========== ALLOWED STATUS TRANSITIONS - FULL FLOW ==========
+const allowedTransitions = {
+  'placed': ['follow_up', 'cancelled'],
+  'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
+  'reminder': ['accepted', 'rejected', 'cancelled'],
+  'accepted': ['approved', 'processing', 'hold', 'cancelled'],
+  'approved': ['processing', 'hold', 'cancelled', 'courier_assigned'],
+  'hold': ['approved', 'processing', 'cancelled', 'courier_assigned'],
+  'processing': ['hold', 'cancelled', 'courier_assigned'],
+  'courier_assigned': ['ready_to_ship', 'partial_delivery', 'delivered', 'returned', 'cancelled'],
+  'partial_delivery': ['delivered', 'returned', 'cancelled'],
+  'ready_to_ship': ['courier_assigned', 'cancelled'],
+  'rejected': ['cancelled'],
+  'shipped': [],      // Courier handles - no manual changes
+  'out_for_delivery': [],  // Courier handles - no manual changes
+  'delivered': [],    // Terminal - no further changes
+  'returned': [],     // Terminal - no further changes
+  'cancelled': []     // Terminal - no further changes
+};
     
     const currentStatus = order.orderStatus;
     const newStatus = orderStatus;
@@ -5932,13 +5952,15 @@ const updateOrderStatus = async (req, res) => {
       'follow_up': 'followUpAt',
       'accepted': 'acceptedAt',
       'approved': 'approvedAt',
+      'hold': 'approvedAt',
       'ready_to_ship': 'shippedAt',
       'courier_assigned': 'shippedAt',
       'rejected': 'cancelledAt',
       'cancelled': 'cancelledAt',
       'reminder': 'reminderAt',
       'delivered': 'deliveredAt',
-      'returned': 'cancelledAt' // Use cancelledAt for returned
+      'returned': 'cancelledAt', // Use cancelledAt for returned
+      'partial_delivery': 'deliveredAt'
     };
     
     if (timestampMap[orderStatus]) {
@@ -6302,9 +6324,12 @@ const getAllOrders = async (req, res) => {
 };
 
 
+// controllers/orderController.js - Updated getOrderStats (Moderator sees all)
 
-// controllers/orderController.js - Update getOrderStats
-
+// ========== GET ORDER STATISTICS ==========
+// @desc    Get order statistics based on user role
+// @route   GET /api/orders/admin/stats
+// @access  Private (Admin/Moderator/Super Admin)
 // const getOrderStats = async (req, res) => {
 //   try {
 //     const today = new Date();
@@ -6314,11 +6339,35 @@ const getAllOrders = async (req, res) => {
 //     thisMonth.setDate(1);
 //     thisMonth.setHours(0, 0, 0, 0);
     
+//     const userRole = req.user?.role || 'admin';
+    
+//     // ========== BUILD QUERY BASED ON ROLE ==========
+//     let statusQuery = {};
+    
+//     // Super Admin, Admin, Moderator: Can see all orders
+//     if (['super_admin', 'admin', 'moderator'].includes(userRole)) {
+//       statusQuery = {}; // No filter - see all orders
+//     } 
+//     // Call Center Agent: Can only see agent-specific statuses
+//     else if (userRole === 'call_center_agent') {
+//       statusQuery = {
+//         orderStatus: { $in: ['follow_up', 'reminder', 'accepted', 'cancelled'] }
+//       };
+//     }
+//     // Default: Only placed, follow_up, reminder, accepted
+//     else {
+//       statusQuery = {
+//         orderStatus: { $in: ['placed', 'follow_up', 'reminder', 'accepted'] }
+//       };
+//     }
+    
+//     // ========== GET ALL ORDER COUNTS ==========
 //     const [
 //       totalOrders,
 //       pendingPayment,
 //       placedOrders,
 //       followUpOrders,
+//       reminderOrders,
 //       acceptedOrders,
 //       approvedOrders,
 //       readyToShipOrders,
@@ -6329,41 +6378,43 @@ const getAllOrders = async (req, res) => {
 //       outForDeliveryOrders,
 //       deliveredOrders,
 //       cancelledOrders,
-//       reminderOrders,
 //       todayOrders,
 //       monthOrders,
 //       totalRevenue,
 //       monthRevenue
 //     ] = await Promise.all([
-//       Order.countDocuments(),
-//       Order.countDocuments({ paymentStatus: 'pending' }),
-//       Order.countDocuments({ orderStatus: 'placed' }),
-//       Order.countDocuments({ orderStatus: 'follow_up' }),
-//       Order.countDocuments({ orderStatus: 'accepted' }),
-//       Order.countDocuments({ orderStatus: 'approved' }),
-//       Order.countDocuments({ orderStatus: 'ready_to_ship' }),
-//       Order.countDocuments({ orderStatus: 'courier_assigned' }),
-//       Order.countDocuments({ orderStatus: 'rejected' }),
-//       Order.countDocuments({ orderStatus: 'processing' }),
-//       Order.countDocuments({ orderStatus: 'shipped' }),
-//       Order.countDocuments({ orderStatus: 'out_for_delivery' }),
-//       Order.countDocuments({ orderStatus: 'delivered' }),
-//       Order.countDocuments({ orderStatus: 'cancelled' }),
-//       Order.countDocuments({ orderStatus: 'reminder' }),
-//       Order.countDocuments({ createdAt: { $gte: today } }),
-//       Order.countDocuments({ createdAt: { $gte: thisMonth } }),
-//       Order.aggregate([{ $group: { _id: null, total: { $sum: '$total' } } }]),
+//       Order.countDocuments(statusQuery),
+//       Order.countDocuments({ ...statusQuery, paymentStatus: 'pending' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'placed' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'follow_up' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'reminder' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'accepted' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'approved' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'ready_to_ship' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'courier_assigned' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'rejected' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'processing' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'shipped' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'out_for_delivery' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'delivered' }),
+//       Order.countDocuments({ ...statusQuery, orderStatus: 'cancelled' }),
+//       Order.countDocuments({ ...statusQuery, createdAt: { $gte: today } }),
+//       Order.countDocuments({ ...statusQuery, createdAt: { $gte: thisMonth } }),
+//       Order.aggregate([{ $match: statusQuery }, { $group: { _id: null, total: { $sum: '$total' } } }]),
 //       Order.aggregate([
-//         { $match: { createdAt: { $gte: thisMonth } } },
+//         { $match: { ...statusQuery, createdAt: { $gte: thisMonth } } },
 //         { $group: { _id: null, total: { $sum: '$total' } } }
 //       ])
 //     ]);
     
+//     // ========== GET STATUS DISTRIBUTION ==========
 //     const statusDistribution = await Order.aggregate([
+//       { $match: statusQuery },
 //       { $group: { _id: '$orderStatus', count: { $sum: 1 }, totalValue: { $sum: '$total' } } },
 //       { $sort: { count: -1 } }
 //     ]);
     
+//     // ========== RESPONSE ==========
 //     res.json({
 //       success: true,
 //       data: {
@@ -6371,6 +6422,7 @@ const getAllOrders = async (req, res) => {
 //         pendingPayment,
 //         placedOrders,
 //         followUpOrders,
+//         reminderOrders,
 //         acceptedOrders,
 //         approvedOrders,
 //         readyToShipOrders,
@@ -6381,7 +6433,6 @@ const getAllOrders = async (req, res) => {
 //         outForDeliveryOrders,
 //         deliveredOrders,
 //         cancelledOrders,
-//         reminderOrders,
 //         todayOrders,
 //         monthOrders,
 //         totalRevenue: totalRevenue[0]?.total || 0,
@@ -6395,13 +6446,7 @@ const getAllOrders = async (req, res) => {
 //     res.status(500).json({ success: false, error: error.message });
 //   }
 // };
-
-// controllers/orderController.js - Updated getOrderStats (Moderator sees all)
-
 // ========== GET ORDER STATISTICS ==========
-// @desc    Get order statistics based on user role
-// @route   GET /api/orders/admin/stats
-// @access  Private (Admin/Moderator/Super Admin)
 const getOrderStats = async (req, res) => {
   try {
     const today = new Date();
@@ -6413,27 +6458,22 @@ const getOrderStats = async (req, res) => {
     
     const userRole = req.user?.role || 'admin';
     
-    // ========== BUILD QUERY BASED ON ROLE ==========
+    // Build query based on role
     let statusQuery = {};
     
-    // Super Admin, Admin, Moderator: Can see all orders
     if (['super_admin', 'admin', 'moderator'].includes(userRole)) {
-      statusQuery = {}; // No filter - see all orders
-    } 
-    // Call Center Agent: Can only see agent-specific statuses
-    else if (userRole === 'call_center_agent') {
+      statusQuery = {};
+    } else if (userRole === 'call_center_agent') {
       statusQuery = {
         orderStatus: { $in: ['follow_up', 'reminder', 'accepted', 'cancelled'] }
       };
-    }
-    // Default: Only placed, follow_up, reminder, accepted
-    else {
+    } else {
       statusQuery = {
         orderStatus: { $in: ['placed', 'follow_up', 'reminder', 'accepted'] }
       };
     }
     
-    // ========== GET ALL ORDER COUNTS ==========
+    // ========== GET ALL ORDER COUNTS WITH HOLD & PARTIAL DELIVERY ==========
     const [
       totalOrders,
       pendingPayment,
@@ -6442,6 +6482,7 @@ const getOrderStats = async (req, res) => {
       reminderOrders,
       acceptedOrders,
       approvedOrders,
+      holdOrders,                    // ← ADD
       readyToShipOrders,
       courierAssignedOrders,
       rejectedOrders,
@@ -6450,6 +6491,8 @@ const getOrderStats = async (req, res) => {
       outForDeliveryOrders,
       deliveredOrders,
       cancelledOrders,
+      returnedOrders,                // ← ADD
+      partialDeliveryOrders,         // ← ADD
       todayOrders,
       monthOrders,
       totalRevenue,
@@ -6462,6 +6505,7 @@ const getOrderStats = async (req, res) => {
       Order.countDocuments({ ...statusQuery, orderStatus: 'reminder' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'accepted' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'approved' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'hold' }),        // ← ADD
       Order.countDocuments({ ...statusQuery, orderStatus: 'ready_to_ship' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'courier_assigned' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'rejected' }),
@@ -6470,6 +6514,8 @@ const getOrderStats = async (req, res) => {
       Order.countDocuments({ ...statusQuery, orderStatus: 'out_for_delivery' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'delivered' }),
       Order.countDocuments({ ...statusQuery, orderStatus: 'cancelled' }),
+      Order.countDocuments({ ...statusQuery, orderStatus: 'returned' }),    // ← ADD
+      Order.countDocuments({ ...statusQuery, orderStatus: 'partial_delivery' }), // ← ADD
       Order.countDocuments({ ...statusQuery, createdAt: { $gte: today } }),
       Order.countDocuments({ ...statusQuery, createdAt: { $gte: thisMonth } }),
       Order.aggregate([{ $match: statusQuery }, { $group: { _id: null, total: { $sum: '$total' } } }]),
@@ -6497,6 +6543,7 @@ const getOrderStats = async (req, res) => {
         reminderOrders,
         acceptedOrders,
         approvedOrders,
+        holdOrders,                  // ← ADD
         readyToShipOrders,
         courierAssignedOrders,
         rejectedOrders,
@@ -6505,6 +6552,8 @@ const getOrderStats = async (req, res) => {
         outForDeliveryOrders,
         deliveredOrders,
         cancelledOrders,
+        returnedOrders,              // ← ADD
+        partialDeliveryOrders,       // ← ADD
         todayOrders,
         monthOrders,
         totalRevenue: totalRevenue[0]?.total || 0,
@@ -6698,7 +6747,8 @@ const updateOrder = async (req, res) => {
 
 
 
-// ========== CREATE DELIVERY ORDER ==========
+// In orderController.js - update the createDeliveryOrder function
+
 // ========== CREATE DELIVERY ORDER ==========
 // const createDeliveryOrder = async (req, res) => {
 //   try {
@@ -6730,7 +6780,7 @@ const updateOrder = async (req, res) => {
 //       });
 //     }
     
-//     // ========== ALLOW READY_TO_SHIP, ACCEPTED, AND PROCESSING ==========
+//     // Allow ready_to_ship, accepted, and processing
 //     const allowedStatuses = ['accepted', 'processing', 'ready_to_ship'];
 //     if (!allowedStatuses.includes(order.orderStatus)) {
 //       return res.status(400).json({ 
@@ -6739,7 +6789,7 @@ const updateOrder = async (req, res) => {
 //       });
 //     }
     
-//     // ========== GET COURIER INTEGRATION ==========
+//     // Get courier integration
 //     const { getCourierIntegration } = require('../lib/couriers/credentials');
 //     const integration = await getCourierIntegration(courierSlug);
     
@@ -6750,7 +6800,7 @@ const updateOrder = async (req, res) => {
 //       });
 //     }
     
-//     // ========== PREPARE ORDER DATA ==========
+//     // Prepare order data
 //     const orderData = {
 //       ...order.toObject(),
 //       orderNumber: order.orderNumber || `ORD-${order._id.toString().slice(-8)}`,
@@ -6760,7 +6810,7 @@ const updateOrder = async (req, res) => {
 //       }))
 //     };
     
-//     // ========== CREATE DELIVERY ORDER WITH COURIER ==========
+//     // Create delivery order with courier
 //     const { createCourierOrder } = require('../lib/couriers/factory');
 //     const result = await createCourierOrder(
 //       courierSlug,
@@ -6769,7 +6819,6 @@ const updateOrder = async (req, res) => {
 //       orderData
 //     );
     
-//     // ========== LOG THE RESULT FROM COURIER API ==========
 //     console.log('✅ Courier API result:', {
 //       success: result.success,
 //       courierOrderId: result.courierOrderId,
@@ -6785,30 +6834,62 @@ const updateOrder = async (req, res) => {
 //       });
 //     }
     
-//     // ========== UPDATE ORDER WITH DELIVERY INFO ==========
-//     order.deliveryService = {
-//       courierId: integration.id,
-//       courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
-//       courierSlug: courierSlug,
-//       trackingNumber: result.trackingNumber || null,
-//       trackingUrl: result.trackingUrl || '',
-//       courierOrderId: result.courierOrderId || null,
-//       courierResponse: result.fullResponse || {},
-//       deliveryStatus: 'processing',
-//       labelUrl: result.labelUrl || '',
-//       invoiceUrl: result.invoiceUrl || '',
-//       deliveryNote: deliveryNote || '',
-//       weight: weight || 0.5,
-//       deliveryStatusHistory: [
-//         {
-//           status: 'processing',
-//           message: `Delivery order created with ${courierSlug} courier service`,
-//           timestamp: new Date()
-//         }
-//       ]
-//     };
+//     // Store old status before updating
+//     const oldStatus = order.orderStatus;
     
-//     // ========== UPDATE ORDER STATUS ==========
+//     // Update order with delivery info
+//     // order.deliveryService = {
+//     //   courierId: integration.id,
+//     //   courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
+//     //   courierSlug: courierSlug,
+//     //   trackingNumber: result.trackingNumber || null,
+//     //   trackingUrl: result.trackingUrl || '',
+//     //   courierOrderId: result.courierOrderId || null,
+//     //   courierResponse: result.fullResponse || {},
+//     //   deliveryStatus: 'processing',
+//     //   labelUrl: result.labelUrl || '',
+//     //   invoiceUrl: result.invoiceUrl || '',
+//     //   deliveryNote: deliveryNote || '',
+//     //   weight: weight || 0.5,
+//     //   deliveryStatusHistory: [
+//     //     {
+//     //       status: 'processing',
+//     //       message: `Delivery order created with ${courierSlug} courier service`,
+//     //       timestamp: new Date()
+//     //     }
+//     //   ]
+//     // };
+//     // In createDeliveryOrder function - after getting result from RedX
+
+// // Update order with delivery info
+// order.deliveryService = {
+//     courierId: integration.id,
+//     courierName: 'RedX', // or courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1)
+//     courierSlug: courierSlug,
+//     trackingNumber: result.trackingNumber || null,
+//     trackingUrl: result.trackingUrl || '',
+//     courierOrderId: result.courierOrderId || null,
+//     courierResponse: {
+//         ...result.fullResponse,
+//         // ✅ Store the exact tracking number and invoice from RedX response
+//         tracking_number: result.trackingNumber || result.fullResponse?.tracking_id,
+//         invoice_number: result.fullResponse?.invoice_number || order.orderNumber,
+//     },
+//     deliveryStatus: 'processing',
+//     labelUrl: result.labelUrl || '',
+//     invoiceUrl: result.invoiceUrl || '',
+//     deliveryNote: deliveryNote || '',
+//     weight: weight || 0.5,
+//     deliveryStatusHistory: [
+//         {
+//             status: 'processing',
+//             message: `Delivery order created with ${courierSlug} courier service`,
+//             timestamp: new Date()
+//         }
+//     ]
+// };
+    
+//     // Update order status
 //     order.trackingNumber = result.trackingNumber || null;
 //     order.orderStatus = 'processing';
 //     order.processingAt = new Date();
@@ -6821,27 +6902,27 @@ const updateOrder = async (req, res) => {
 //       req.user?.role || 'admin'
 //     );
     
-//     // ========== 🔴 DEBUG LOGS - BEFORE SAVE 🔴 ==========
-//     console.log('📦 Order deliveryService before save:', JSON.stringify(order.deliveryService, null, 2));
-//     console.log('📦 Tracking number:', order.deliveryService?.trackingNumber);
-//     console.log('📦 Courier name:', order.deliveryService?.courierName);
-//     console.log('📦 Courier slug:', order.deliveryService?.courierSlug);
-//     console.log('📦 Courier order ID:', order.deliveryService?.courierOrderId);
-//     console.log('📦 Tracking URL:', order.deliveryService?.trackingUrl);
-//     console.log('📦 Result from courier:', {
-//       trackingNumber: result.trackingNumber,
-//       courierOrderId: result.courierOrderId,
-//       trackingUrl: result.trackingUrl
-//     });
-    
-//     // ========== SAVE THE ORDER ==========
 //     await order.save();
     
-//     // ========== 🔴 DEBUG LOGS - AFTER SAVE 🔴 ==========
-//     console.log('✅ Order saved successfully!');
-//     console.log('📦 Saved deliveryService:', JSON.stringify(order.deliveryService, null, 2));
-//     console.log('📦 Saved tracking number:', order.deliveryService?.trackingNumber);
-//     console.log('📦 Saved courier name:', order.deliveryService?.courierName);
+//     // ========== SEND EMAIL FOR COURIER ASSIGNMENT ==========
+//     // Send email to customer about courier assignment
+//     if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
+//       try {
+//         // Send courier assigned email
+//         await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, 'processing');
+//         console.log('✅ Courier assignment email sent to customer for order:', order.orderNumber);
+//       } catch (emailError) {
+//         console.error('❌ Courier assignment email error:', emailError.message);
+//       }
+//     }
+
+//     // Send admin notification
+//     try {
+//       await sendOrderNotificationToAdmin(order, 'status_update');
+//       console.log('✅ Admin notification sent for courier assignment:', order.orderNumber);
+//     } catch (emailError) {
+//       console.error('❌ Admin notification error on courier assignment:', emailError.message);
+//     }
     
 //     res.json({
 //       success: true,
@@ -6859,9 +6940,6 @@ const updateOrder = async (req, res) => {
 //     });
 //   }
 // };
-
-// In orderController.js - update the createDeliveryOrder function
-
 // ========== CREATE DELIVERY ORDER ==========
 const createDeliveryOrder = async (req, res) => {
   try {
@@ -6893,12 +6971,13 @@ const createDeliveryOrder = async (req, res) => {
       });
     }
     
-    // Allow ready_to_ship, accepted, and processing
-    const allowedStatuses = ['accepted', 'processing', 'ready_to_ship'];
+    // ========== ALLOW MORE STATUSES FOR COURIER ASSIGNMENT ==========
+    // Allow: accepted, approved, hold, processing, ready_to_ship
+    const allowedStatuses = ['accepted', 'approved', 'hold', 'processing', 'ready_to_ship'];
     if (!allowedStatuses.includes(order.orderStatus)) {
       return res.status(400).json({ 
         success: false, 
-        error: `Order status is ${order.orderStatus}. Only 'Accepted', 'Processing', or 'Ready to Ship' orders can create delivery.` 
+        error: `Order status is ${order.orderStatus}. Only 'Accepted', 'Approved', 'On Hold', 'Processing', or 'Ready to Ship' orders can create delivery.` 
       });
     }
     
@@ -6951,85 +7030,57 @@ const createDeliveryOrder = async (req, res) => {
     const oldStatus = order.orderStatus;
     
     // Update order with delivery info
-    // order.deliveryService = {
-    //   courierId: integration.id,
-    //   courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
-    //   courierSlug: courierSlug,
-    //   trackingNumber: result.trackingNumber || null,
-    //   trackingUrl: result.trackingUrl || '',
-    //   courierOrderId: result.courierOrderId || null,
-    //   courierResponse: result.fullResponse || {},
-    //   deliveryStatus: 'processing',
-    //   labelUrl: result.labelUrl || '',
-    //   invoiceUrl: result.invoiceUrl || '',
-    //   deliveryNote: deliveryNote || '',
-    //   weight: weight || 0.5,
-    //   deliveryStatusHistory: [
-    //     {
-    //       status: 'processing',
-    //       message: `Delivery order created with ${courierSlug} courier service`,
-    //       timestamp: new Date()
-    //     }
-    //   ]
-    // };
-    // In createDeliveryOrder function - after getting result from RedX
-
-// Update order with delivery info
-order.deliveryService = {
-    courierId: integration.id,
-    courierName: 'RedX', // or courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1)
-    courierSlug: courierSlug,
-    trackingNumber: result.trackingNumber || null,
-    trackingUrl: result.trackingUrl || '',
-    courierOrderId: result.courierOrderId || null,
-    courierResponse: {
+    order.deliveryService = {
+      courierId: integration.id,
+      courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
+      courierSlug: courierSlug,
+      trackingNumber: result.trackingNumber || null,
+      trackingUrl: result.trackingUrl || '',
+      courierOrderId: result.courierOrderId || null,
+      courierResponse: {
         ...result.fullResponse,
-        // ✅ Store the exact tracking number and invoice from RedX response
         tracking_number: result.trackingNumber || result.fullResponse?.tracking_id,
         invoice_number: result.fullResponse?.invoice_number || order.orderNumber,
-    },
-    deliveryStatus: 'processing',
-    labelUrl: result.labelUrl || '',
-    invoiceUrl: result.invoiceUrl || '',
-    deliveryNote: deliveryNote || '',
-    weight: weight || 0.5,
-    deliveryStatusHistory: [
+      },
+      deliveryStatus: 'processing',
+      labelUrl: result.labelUrl || '',
+      invoiceUrl: result.invoiceUrl || '',
+      deliveryNote: deliveryNote || '',
+      weight: weight || 0.5,
+      deliveryStatusHistory: [
         {
-            status: 'processing',
-            message: `Delivery order created with ${courierSlug} courier service`,
-            timestamp: new Date()
+          status: 'processing',
+          message: `Delivery order created with ${courierSlug} courier service`,
+          timestamp: new Date()
         }
-    ]
-};
+      ]
+    };
     
-    // Update order status
+    // ========== UPDATE ORDER STATUS TO COURIER_ASSIGNED ==========
     order.trackingNumber = result.trackingNumber || null;
-    order.orderStatus = 'processing';
+    order.orderStatus = 'courier_assigned';  // ← SET TO COURIER_ASSIGNED
     order.processingAt = new Date();
     
     // Add status history
     order.addStatusHistory(
-      'processing', 
-      `Order assigned to ${courierSlug} courier for delivery`,
+      'courier_assigned', 
+      `Order assigned to ${courierSlug} courier for delivery (from ${oldStatus})`,
       req.user?._id,
       req.user?.role || 'admin'
     );
     
     await order.save();
     
-    // ========== SEND EMAIL FOR COURIER ASSIGNMENT ==========
-    // Send email to customer about courier assignment
+    // Send email for courier assignment
     if (order.customerInfo.email && order.customerInfo.email.trim() !== '') {
       try {
-        // Send courier assigned email
-        await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, 'processing');
+        await sendOrderStatusUpdateEmail(order, order.customerInfo.email, oldStatus, 'courier_assigned');
         console.log('✅ Courier assignment email sent to customer for order:', order.orderNumber);
       } catch (emailError) {
         console.error('❌ Courier assignment email error:', emailError.message);
       }
     }
 
-    // Send admin notification
     try {
       await sendOrderNotificationToAdmin(order, 'status_update');
       console.log('✅ Admin notification sent for courier assignment:', order.orderNumber);
@@ -7053,7 +7104,6 @@ order.deliveryService = {
     });
   }
 };
-
 
 
 // ========== GET ORDER TRACKING ==========
@@ -8021,11 +8071,112 @@ const updateDeliveryStatus = async (req, res) => {
 // @desc    Get order statistics with date filtering
 // @route   GET /api/orders/admin/stats/filtered
 // @access  Private (Admin/Moderator/Super Admin)
+// const getFilteredOrderStats = async (req, res) => {
+//   try {
+//     const { startDate, endDate } = req.query;
+    
+//     // Build date filter
+//     let dateFilter = {};
+//     if (startDate && endDate) {
+//       dateFilter = {
+//         createdAt: {
+//           $gte: new Date(startDate),
+//           $lte: new Date(endDate)
+//         }
+//       };
+//     }
+    
+//     // ========== GET FILTERED ORDER COUNTS ==========
+//     const [
+//       totalOrders,
+//       placedOrders,
+//       followUpOrders,
+//       reminderOrders,
+//       acceptedOrders,
+//       approvedOrders,
+//       readyToShipOrders,
+//       courierAssignedOrders,
+//       rejectedOrders,
+//       processingOrders,
+//       shippedOrders,
+//       outForDeliveryOrders,
+//       deliveredOrders,
+//       cancelledOrders,
+//       returnedOrders,
+//       pendingPayment,
+//       todayOrders,
+//       monthOrders,
+//       totalRevenue,
+//       monthRevenue
+//     ] = await Promise.all([
+//       Order.countDocuments(dateFilter),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'placed' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'follow_up' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'reminder' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'accepted' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'approved' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'ready_to_ship' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'courier_assigned' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'rejected' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'processing' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'shipped' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'out_for_delivery' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'delivered' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'cancelled' }),
+//       Order.countDocuments({ ...dateFilter, orderStatus: 'returned' }),
+//       Order.countDocuments({ ...dateFilter, paymentStatus: 'pending' }),
+//       Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date().setHours(0,0,0,0) } }),
+//       Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }),
+//       Order.aggregate([
+//         { $match: dateFilter },
+//         { $group: { _id: null, total: { $sum: '$total' } } }
+//       ]),
+//       Order.aggregate([
+//         { 
+//           $match: { 
+//             ...dateFilter, 
+//             createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } 
+//           } 
+//         },
+//         { $group: { _id: null, total: { $sum: '$total' } } }
+//       ])
+//     ]);
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         totalOrders,
+//         placedOrders,
+//         followUpOrders,
+//         reminderOrders,
+//         acceptedOrders,
+//         approvedOrders,
+//         readyToShipOrders,
+//         courierAssignedOrders,
+//         rejectedOrders,
+//         processingOrders,
+//         shippedOrders,
+//         outForDeliveryOrders,
+//         deliveredOrders,
+//         cancelledOrders,
+//         returnedOrders,
+//         pendingPayment,
+//         todayOrders,
+//         monthOrders,
+//         totalRevenue: totalRevenue[0]?.total || 0,
+//         monthRevenue: monthRevenue[0]?.total || 0
+//       }
+//     });
+    
+//   } catch (error) {
+//     console.error('Get filtered order stats error:', error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
 const getFilteredOrderStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
-    // Build date filter
     let dateFilter = {};
     if (startDate && endDate) {
       dateFilter = {
@@ -8036,7 +8187,7 @@ const getFilteredOrderStats = async (req, res) => {
       };
     }
     
-    // ========== GET FILTERED ORDER COUNTS ==========
+    // ========== GET FILTERED ORDER COUNTS WITH HOLD & PARTIAL ==========
     const [
       totalOrders,
       placedOrders,
@@ -8044,6 +8195,7 @@ const getFilteredOrderStats = async (req, res) => {
       reminderOrders,
       acceptedOrders,
       approvedOrders,
+      holdOrders,                    // ← ADD
       readyToShipOrders,
       courierAssignedOrders,
       rejectedOrders,
@@ -8053,6 +8205,7 @@ const getFilteredOrderStats = async (req, res) => {
       deliveredOrders,
       cancelledOrders,
       returnedOrders,
+      partialDeliveryOrders,         // ← ADD
       pendingPayment,
       todayOrders,
       monthOrders,
@@ -8065,6 +8218,7 @@ const getFilteredOrderStats = async (req, res) => {
       Order.countDocuments({ ...dateFilter, orderStatus: 'reminder' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'accepted' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'approved' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'hold' }),        // ← ADD
       Order.countDocuments({ ...dateFilter, orderStatus: 'ready_to_ship' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'courier_assigned' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'rejected' }),
@@ -8074,6 +8228,7 @@ const getFilteredOrderStats = async (req, res) => {
       Order.countDocuments({ ...dateFilter, orderStatus: 'delivered' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'cancelled' }),
       Order.countDocuments({ ...dateFilter, orderStatus: 'returned' }),
+      Order.countDocuments({ ...dateFilter, orderStatus: 'partial_delivery' }), // ← ADD
       Order.countDocuments({ ...dateFilter, paymentStatus: 'pending' }),
       Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date().setHours(0,0,0,0) } }),
       Order.countDocuments({ ...dateFilter, createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }),
@@ -8101,6 +8256,7 @@ const getFilteredOrderStats = async (req, res) => {
         reminderOrders,
         acceptedOrders,
         approvedOrders,
+        holdOrders,                  // ← ADD
         readyToShipOrders,
         courierAssignedOrders,
         rejectedOrders,
@@ -8110,6 +8266,7 @@ const getFilteredOrderStats = async (req, res) => {
         deliveredOrders,
         cancelledOrders,
         returnedOrders,
+        partialDeliveryOrders,       // ← ADD
         pendingPayment,
         todayOrders,
         monthOrders,
@@ -8139,7 +8296,8 @@ const isOrderEditable = (orderStatus) => {
     'cancelled',
     'rejected',
     'refunded',
-    'returned'
+    'returned',
+    'partial_delivery'
   ];
   
   return !nonEditableStatuses.includes(orderStatus);

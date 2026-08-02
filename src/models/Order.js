@@ -939,7 +939,7 @@ const customerInfoSchema = new mongoose.Schema({
 const orderStatusHistorySchema = new mongoose.Schema({
   status: { 
     type: String, 
-    enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned'],
+      enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned', 'partial_delivery', 'hold'],
     required: true 
   },
   note: { 
@@ -1195,7 +1195,7 @@ const orderSchema = new mongoose.Schema({
   // Order Status
   orderStatus: { 
     type: String, 
-    enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed'],
+    enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed', 'partial_delivery', 'hold'],
     default: 'placed' 
   },
   
@@ -1458,6 +1458,63 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
  * Update delivery status with history
  * Auto-updates payment status for COD orders when delivered
  */
+// orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
+//   if (!this.deliveryService) {
+//     this.deliveryService = {};
+//   }
+  
+//   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
+  
+//   // Update delivery status
+//   this.deliveryService.deliveryStatus = status;
+  
+//   // Add to history
+//   if (!this.deliveryService.deliveryStatusHistory) {
+//     this.deliveryService.deliveryStatusHistory = [];
+//   }
+  
+//   this.deliveryService.deliveryStatusHistory.push({
+//     status: status,
+//     message: message || `Status updated to ${status}`,
+//     location: location || '',
+//     timestamp: new Date()
+//   });
+  
+//   // ========== AUTO-UPDATE ON DELIVERY ==========
+//   if (status === 'delivered') {
+//     // 1. Update order status
+//     this.orderStatus = 'delivered';
+//     this.deliveredAt = new Date();
+//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+    
+//     // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
+//     if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
+//       this.paymentStatus = 'paid';
+//       console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
+      
+//       // Update payment details with timestamp
+//       if (!this.paymentDetails) {
+//         this.paymentDetails = {};
+//       }
+//       this.paymentDetails.paidAt = new Date();
+//       this.paymentDetails.paidBy = 'System (Auto-updated via webhook)';
+//     }
+//   }
+  
+//   // Handle other statuses
+//   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
+//     this.deliveryService.pickedUpDate = new Date();
+//   }
+  
+//   if (status === 'delivered') {
+//     this.deliveryService.actualDeliveryDate = new Date();
+//   }
+  
+//   return this;
+// };
+
+
+// ========== UPDATE DELIVERY STATUS METHOD ==========
 orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
   if (!this.deliveryService) {
     this.deliveryService = {};
@@ -1480,19 +1537,18 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     timestamp: new Date()
   });
   
-  // ========== AUTO-UPDATE ON DELIVERY ==========
+  // ========== ONLY UPDATE ORDER STATUS ON DELIVERED ==========
   if (status === 'delivered') {
-    // 1. Update order status
+    // 1. Update order status to delivered
     this.orderStatus = 'delivered';
     this.deliveredAt = new Date();
     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
     
-    // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
+    // 2. AUTO-UPDATE PAYMENT STATUS FOR COD
     if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
       this.paymentStatus = 'paid';
       console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
       
-      // Update payment details with timestamp
       if (!this.paymentDetails) {
         this.paymentDetails = {};
       }
@@ -1501,7 +1557,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     }
   }
   
-  // Handle other statuses
+  // Handle other statuses - DO NOT change order status
   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
     this.deliveryService.pickedUpDate = new Date();
   }
@@ -1583,6 +1639,7 @@ orderSchema.virtual('statusLabels').get(function() {
     'follow_up': 'Follow Up',
     'accepted': 'Accepted',
     'approved': 'Approved',
+     'hold': 'On Hold',  
     'ready_to_ship': 'Ready to Ship',
     'courier_assigned': 'Courier Assigned',
     'rejected': 'Rejected',
@@ -1594,7 +1651,8 @@ orderSchema.virtual('statusLabels').get(function() {
     'delivered': 'Delivered',
     'refunded': 'Refunded',
     'failed': 'Failed',
-    'returned': 'Returned' 
+    'returned': 'Returned' ,
+     'partial_delivery': 'Partial Delivery'
   };
   return statusMap[this.orderStatus] || this.orderStatus;
 });
