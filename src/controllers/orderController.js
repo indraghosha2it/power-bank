@@ -5831,7 +5831,7 @@ const allowedTransitions = {
   'processing': ['hold', 'cancelled', 'courier_assigned'],
   'courier_assigned': ['ready_to_ship', 'partial_delivery', 'delivered', 'returned', 'cancelled'],
   'partial_delivery': ['delivered', 'returned', 'cancelled'],
-  'ready_to_ship': ['courier_assigned', 'cancelled'],
+    'ready_to_ship': ['delivered', 'partial_delivery', 'returned', 'cancelled'],
   'rejected': ['cancelled'],
   'shipped': [],      // Courier handles - no manual changes
   'out_for_delivery': [],  // Courier handles - no manual changes
