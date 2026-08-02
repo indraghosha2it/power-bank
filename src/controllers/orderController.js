@@ -7329,6 +7329,8 @@ const createDeliveryOrder = async (req, res) => {
 // controllers/orderController.js - Ensure this is correct
 
 
+// controllers/orderController.js - Updated getOrderTracking
+
 const getOrderTracking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -7348,6 +7350,7 @@ const getOrderTracking = async (req, res) => {
     const { courierSlug, trackingNumber } = order.deliveryService;
     
     // Get courier integration
+    const { getCourierIntegration } = require('../lib/couriers/credentials');
     const integration = await getCourierIntegration(courierSlug);
     
     if (!integration || !integration.creds) {
@@ -7362,18 +7365,73 @@ const getOrderTracking = async (req, res) => {
           courierName: order.deliveryService.courierName,
           courierSlug: order.deliveryService.courierSlug,
           trackingUrl: order.deliveryService.trackingUrl,
-          deliveryStatus: order.deliveryService.deliveryStatus,
+          deliveryStatus: order.deliveryService.deliveryStatus || 'pending',
           history: order.deliveryService.deliveryStatusHistory || []
         }
       });
     }
     
     // Get tracking from courier
+    const { getCourierTracking } = require('../lib/couriers/factory');
     const result = await getCourierTracking(
       courierSlug,
       integration.creds,
       trackingNumber
     );
+    
+    // ✅ IMPORTANT: The status from courier might be in different formats
+    // For RedX: status field like "ready-for-delivery", "delivery-in-progress", "delivered"
+    // For Pathao: event field like "pickup.requested", "in.transit", "delivered"
+    
+    let courierStatus = order.deliveryService.deliveryStatus || 'pending';
+    
+    if (result.success) {
+      // ✅ Map the courier status to our internal status
+      if (result.status) {
+        courierStatus = result.status;
+      } else if (result.data?.status) {
+        courierStatus = result.data.status;
+      }
+      
+      // ✅ Special handling for RedX statuses
+      if (courierSlug === 'redx') {
+        const redxStatusMap = {
+          'ready-for-delivery': 'ready-for-delivery',
+          'delivery-in-progress': 'delivery-in-progress',
+          'delivered': 'delivered',
+          'agent-hold': 'agent-hold',
+          'agent-returning': 'agent-returning',
+          'returned': 'returned',
+          'agent-area-change': 'agent-area-change'
+        };
+        courierStatus = redxStatusMap[courierStatus] || courierStatus;
+      }
+      
+      // ✅ Special handling for Pathao statuses
+      if (courierSlug === 'pathao') {
+        const pathaoStatusMap = {
+          'order.created': 'order.created',
+          'order.updated': 'order.updated',
+          'pickup.requested': 'pickup.requested',
+          'assigned.for.pickup': 'assigned.for.pickup',
+          'pickup': 'pickup',
+          'pickup.failed': 'pickup.failed',
+          'pickup.cancelled': 'pickup.cancelled',
+          'at.the.sorting.hub': 'at.the.sorting.hub',
+          'in.transit': 'in.transit',
+          'received.at.last.mile.hub': 'received.at.last.mile.hub',
+          'assigned.for.delivery': 'assigned.for.delivery',
+          'delivered': 'delivered'
+        };
+        courierStatus = pathaoStatusMap[courierStatus] || courierStatus;
+      }
+      
+      // ✅ If delivered, update order status
+      if (courierStatus === 'delivered' && order.deliveryService.deliveryStatus !== 'delivered') {
+        order.updateDeliveryStatus('delivered', result.message || 'Order delivered', result.location || '');
+        await order.save();
+      }
+    }
     
     // Prepare response
     const responseData = {
@@ -7381,50 +7439,25 @@ const getOrderTracking = async (req, res) => {
       courierName: order.deliveryService.courierName,
       courierSlug: order.deliveryService.courierSlug,
       trackingUrl: order.deliveryService.trackingUrl,
-      deliveryStatus: order.deliveryService.deliveryStatus,
+      deliveryStatus: courierStatus, // ✅ Use the mapped status
       history: order.deliveryService.deliveryStatusHistory || [],
       courierOrderId: order.deliveryService.courierOrderId,
       labelUrl: order.deliveryService.labelUrl,
       invoiceUrl: order.deliveryService.invoiceUrl,
       weight: order.deliveryService.weight,
-      deliveryNote: order.deliveryService.deliveryNote
+      deliveryNote: order.deliveryService.deliveryNote,
+      trackingStatus: result.status,
+      trackingMessage: result.message,
+      trackingHistory: result.history || [],
+      currentLocation: result.location,
+      estimatedDelivery: result.estimatedDelivery,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus
     };
     
-    if (!result.success) {
-      return res.json({
-        success: true,
-        data: {
-          ...responseData,
-          status: 'Not available',
-          message: result.message || 'Tracking info not available',
-          error: result.message
-        }
-      });
-    }
-    
-    // Auto-update on delivery
-    if (result.status === 'delivered' && order.deliveryService.deliveryStatus !== 'delivered') {
-      order.updateDeliveryStatus('delivered', result.message || 'Order delivered', result.location || '');
-      await order.save();
-      
-      responseData.deliveryStatus = 'delivered';
-      responseData.history = order.deliveryService.deliveryStatusHistory || [];
-    }
-    
-    // Merge tracking data
     res.json({
       success: true,
-      data: {
-        ...responseData,
-        trackingStatus: result.status,
-        trackingMessage: result.message,
-        trackingHistory: result.history || [],
-        currentLocation: result.location,
-        estimatedDelivery: result.estimatedDelivery,
-        courierResponse: result.fullResponse || {},
-        paymentStatus: order.paymentStatus,
-        orderStatus: order.orderStatus
-      }
+      data: responseData
     });
     
   } catch (error) {
