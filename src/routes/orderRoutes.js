@@ -30,7 +30,8 @@ const {
   removeProductFromOrder,
   updateOrderDiscount,
   searchProductsForOrder,
-  bulkUpdateOrder
+  bulkUpdateOrder,
+  getBulkTrackingStatuses
 } = require('../controllers/orderController');
 const { getProfitMarginData, getProductProfitMargin } = require('../controllers/profitMarginController');
 
@@ -52,6 +53,7 @@ router.get('/admin/stats', protect, isModeratorOrAdmin, getOrderStats);
 router.put('/:id/status', protect, isModeratorOrAdmin, updateOrderStatus);
 router.put('/:id/payment', protect, isModeratorOrAdmin, updatePaymentStatus);
 router.put('/:id', protect, isModeratorOrAdmin, updateOrder);
+router.post('/admin/tracking-statuses', protect, isModeratorOrAdmin, getBulkTrackingStatuses);
 
 // Delivery routes
 router.post('/:id/delivery', protect, isModeratorOrAdmin, createDeliveryOrder);

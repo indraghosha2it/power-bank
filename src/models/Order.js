@@ -30,6 +30,14 @@
 //     type: Number, 
 //     default: 0 
 //   },
+//   costPerItem: { 
+//     type: Number, 
+//     default: 0 
+//   },
+//   buyingPrice: { 
+//     type: Number, 
+//     default: 0 
+//   },
 //   quantity: { 
 //     type: Number, 
 //     required: true, 
@@ -108,7 +116,7 @@
 // const orderStatusHistorySchema = new mongoose.Schema({
 //   status: { 
 //     type: String, 
-//     enum: ['placed', 'follow_up', 'accepted', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'reminder', 'refunded', 'failed'],
+//      enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned'],
 //     required: true 
 //   },
 //   note: { 
@@ -122,7 +130,7 @@
 //   },
 //   updatedByRole: { 
 //     type: String,
-//     enum: ['user', 'admin', 'moderator', 'system', 'courier', 'call_center'],
+//     enum: ['user','super_admin', 'admin', 'moderator', 'system', 'courier', 'call_center'],
 //     default: 'system'
 //   },
 //   timestamp: { 
@@ -355,7 +363,7 @@
 //   // Order Status
 //   orderStatus: { 
 //     type: String, 
-//     enum: ['placed', 'follow_up', 'accepted', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'reminder', 'refunded', 'failed'],
+//      enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed'],
 //     default: 'placed' 
 //   },
   
@@ -419,10 +427,28 @@
 //     type: Date, 
 //     default: null 
 //   },
+//    approvedAt: { 
+//     type: Date, 
+//     default: null 
+//   },
+//   returnedAt: { 
+//   type: Date, 
+//   default: null 
+// },
+  
+//   rejectionReason: { 
+//     type: String, 
+//     default: '' 
+//   },
 //   cancellationReason: { 
 //     type: String, 
 //     default: '' 
 //   },
+//   restrictionViolation: {
+//   type: String,
+//   enum: ['ip_blocked', 'phone_blocked', 'email_blocked', 'ip_time_interval', 'phone_time_interval', 'none'],
+//   default: 'none'
+// },
   
 //   // Metadata
 //   metadata: { 
@@ -458,7 +484,7 @@
 //       const Order = mongoose.model('Order');
       
 //       const lastOrder = await Order.findOne({
-//         orderNumber: { $regex: `^BBuc${year}${month}` }
+//         orderNumber: { $regex: `^HV${year}${month}` }
 //       })
 //       .sort({ orderNumber: -1 })
 //       .lean();
@@ -466,20 +492,20 @@
 //       let sequenceNumber = 1;
       
 //       if (lastOrder && lastOrder.orderNumber) {
-//         const match = lastOrder.orderNumber.match(/BBuc\d{4}(\d{4})/);
+//         const match = lastOrder.orderNumber.match(/HV\d{4}(\d{4})/);
 //         if (match) {
 //           sequenceNumber = parseInt(match[1]) + 1;
 //         }
 //       }
       
 //       const paddedNumber = sequenceNumber.toString().padStart(4, '0');
-//       const newOrderNumber = `BBuc${year}${month}${paddedNumber}`;
+//       const newOrderNumber = `HV${year}${month}${paddedNumber}`;
       
 //       const existingOrder = await Order.findOne({ orderNumber: newOrderNumber });
 //       if (existingOrder) {
 //         const nextSeq = sequenceNumber + 1;
 //         const nextPadded = nextSeq.toString().padStart(4, '0');
-//         this.orderNumber = `BBuc${year}${month}${nextPadded}`;
+//         this.orderNumber = `HV${year}${month}${nextPadded}`;
 //       } else {
 //         this.orderNumber = newOrderNumber;
 //       }
@@ -488,7 +514,7 @@
 //     } catch (error) {
 //       console.error('Error generating order number:', error);
 //       const timestamp = Date.now().toString().slice(-6);
-//       this.orderNumber = `BBuc${timestamp}`;
+//       this.orderNumber = `HV${timestamp}`;
 //     }
 //   }
   
@@ -536,6 +562,20 @@
 //   if (lastEntry && lastEntry.status === status && lastEntry.note === note) {
 //     return this;
 //   }
+
+//   // Map roles to valid enum values
+//   let validRole = updatedByRole || 'system';
+  
+//   // Map call_center_agent to call_center
+//   if (validRole === 'call_center_agent') {
+//     validRole = 'call_center';
+//   }
+  
+//   // Ensure the role is valid - if not, default to 'system'
+//   const validRoles = ['user', 'admin', 'moderator', 'super_admin', 'system', 'courier', 'call_center'];
+//   if (!validRoles.includes(validRole)) {
+//     validRole = 'system';
+//   }
   
 //   this.statusHistory.push({
 //     status,
@@ -548,9 +588,7 @@
 //   return this;
 // };
 
-// /**
-//  * Update order status with history
-//  */
+// // ========== UPDATE updateOrderStatus METHOD ==========
 // orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy = null, updatedByRole = 'system') {
 //   const oldStatus = this.orderStatus;
   
@@ -561,31 +599,21 @@
 //   this.orderStatus = newStatus;
   
 //   // Update timestamps based on status
-//   switch(newStatus) {
-//     case 'placed':
-//       this.placedAt = new Date();
-//       break;
-//     case 'follow_up':
-//       this.followUpAt = new Date();
-//       break;
-//     case 'accepted':
-//       this.acceptedAt = new Date();
-//       break;
-//     case 'processing':
-//       this.processingAt = new Date();
-//       break;
-//     case 'shipped':
-//       this.shippedAt = new Date();
-//       break;
-//     case 'delivered':
-//       this.deliveredAt = new Date();
-//       break;
-//     case 'cancelled':
-//       this.cancelledAt = new Date();
-//       break;
-//     case 'reminder':
-//       this.reminderAt = new Date();
-//       break;
+//   const timestampMap = {
+//     'placed': 'placedAt',
+//     'follow_up': 'followUpAt',
+//     'accepted': 'acceptedAt',
+//     'approved': 'approvedAt',
+//     'ready_to_ship': 'shippedAt',
+//     'courier_assigned': 'shippedAt',
+//     'rejected': 'cancelledAt',
+//     'cancelled': 'cancelledAt',
+//     'reminder': 'reminderAt',
+//     'delivered': 'deliveredAt'
+//   };
+  
+//   if (timestampMap[newStatus]) {
+//     this[timestampMap[newStatus]] = new Date();
 //   }
   
 //   this.addStatusHistory(newStatus, note || `Status changed from ${oldStatus} to ${newStatus}`, updatedBy, updatedByRole);
@@ -595,6 +623,54 @@
 
 // /**
 //  * Update delivery status with history
+//  */
+// // orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
+// //   if (!this.deliveryService) {
+// //     this.deliveryService = {};
+// //   }
+  
+// //   const validStatuses = ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'];
+  
+// //   if (!validStatuses.includes(status)) {
+// //     throw new Error(`Invalid delivery status: ${status}`);
+// //   }
+  
+// //   this.deliveryService.deliveryStatus = status;
+  
+// //   if (!this.deliveryService.deliveryStatusHistory) {
+// //     this.deliveryService.deliveryStatusHistory = [];
+// //   }
+  
+// //   this.deliveryService.deliveryStatusHistory.push({
+// //     status,
+// //     message: message || `Status updated to ${status}`,
+// //     location,
+// //     timestamp: new Date()
+// //   });
+  
+// //   if (status === 'delivered') {
+// //     this.deliveryService.actualDeliveryDate = new Date();
+// //   }
+  
+// //   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
+// //     this.deliveryService.pickedUpDate = new Date();
+// //   }
+  
+// //   if (status === 'delivered') {
+// //     this.orderStatus = 'delivered';
+// //     this.deliveredAt = new Date();
+// //     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+// //   }
+  
+// //   return this;
+// // };
+
+// // In Order.js - Update the updateDeliveryStatus method
+
+// // ========== UPDATE DELIVERY STATUS METHOD ==========
+// /**
+//  * Update delivery status with history
+//  * Auto-updates payment status for COD orders when delivered
 //  */
 // orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
 //   if (!this.deliveryService) {
@@ -607,8 +683,12 @@
 //     throw new Error(`Invalid delivery status: ${status}`);
 //   }
   
+//   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
+  
+//   // Update delivery status
 //   this.deliveryService.deliveryStatus = status;
   
+//   // Add to history
 //   if (!this.deliveryService.deliveryStatusHistory) {
 //     this.deliveryService.deliveryStatusHistory = [];
 //   }
@@ -620,18 +700,34 @@
 //     timestamp: new Date()
 //   });
   
+//   // ========== AUTO-UPDATE ON DELIVERY ==========
 //   if (status === 'delivered') {
-//     this.deliveryService.actualDeliveryDate = new Date();
+//     // 1. Update order status
+//     this.orderStatus = 'delivered';
+//     this.deliveredAt = new Date();
+//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+    
+//     // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
+//     if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
+//       this.paymentStatus = 'paid';
+//       console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
+      
+//       // Update payment details with timestamp
+//       if (!this.paymentDetails) {
+//         this.paymentDetails = {};
+//       }
+//       this.paymentDetails.paidAt = new Date();
+//       this.paymentDetails.paidBy = 'System (Auto-updated on delivery)';
+//     }
 //   }
   
+//   // Handle other statuses
 //   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
 //     this.deliveryService.pickedUpDate = new Date();
 //   }
   
 //   if (status === 'delivered') {
-//     this.orderStatus = 'delivered';
-//     this.deliveredAt = new Date();
-//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+//     this.deliveryService.actualDeliveryDate = new Date();
 //   }
   
 //   return this;
@@ -675,7 +771,7 @@
 // // ========== VIRTUALS ==========
 // orderSchema.virtual('formattedOrderNumber').get(function() {
 //   if (this.orderNumber) {
-//     const match = this.orderNumber.match(/(BBuc)(\d{2})(\d{2})(\d{4})/);
+//     const match = this.orderNumber.match(/(HV)(\d{2})(\d{2})(\d{4})/);
 //     if (match) {
 //       return `${match[1]}-${match[2]}${match[3]}-${match[4]}`;
 //     }
@@ -706,19 +802,26 @@
 //     'placed': 'Order Placed',
 //     'follow_up': 'Follow Up',
 //     'accepted': 'Accepted',
+//     'approved': 'Approved',
+//     'ready_to_ship': 'Ready to Ship',
+//     'courier_assigned': 'Courier Assigned',
+//     'rejected': 'Rejected',
+//     'cancelled': 'Cancelled',
+//     'reminder': 'Reminder',
 //     'processing': 'Processing',
 //     'shipped': 'Shipped',
 //     'out_for_delivery': 'Out for Delivery',
 //     'delivered': 'Delivered',
-//     'cancelled': 'Cancelled',
-//     'reminder': 'Reminder',
 //     'refunded': 'Refunded',
-//     'failed': 'Failed'
+//     'failed': 'Failed',
+//     'returned': 'Returned' 
 //   };
 //   return statusMap[this.orderStatus] || this.orderStatus;
 // });
 
+
 // module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
+
 
 
 
@@ -1344,9 +1447,10 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
   return this;
 };
 
-/**
- * Update delivery status with history
- */
+
+//  * Update delivery status with history
+//  * Auto-updates payment status for COD orders when delivered
+//  */
 // orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
 //   if (!this.deliveryService) {
 //     this.deliveryService = {};
@@ -1358,8 +1462,12 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
 //     throw new Error(`Invalid delivery status: ${status}`);
 //   }
   
+//   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
+  
+//   // Update delivery status
 //   this.deliveryService.deliveryStatus = status;
   
+//   // Add to history
 //   if (!this.deliveryService.deliveryStatusHistory) {
 //     this.deliveryService.deliveryStatusHistory = [];
 //   }
@@ -1371,26 +1479,42 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
 //     timestamp: new Date()
 //   });
   
+//   // ========== AUTO-UPDATE ON DELIVERY ==========
 //   if (status === 'delivered') {
-//     this.deliveryService.actualDeliveryDate = new Date();
+//     // 1. Update order status
+//     this.orderStatus = 'delivered';
+//     this.deliveredAt = new Date();
+//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+    
+//     // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
+//     if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
+//       this.paymentStatus = 'paid';
+//       console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
+      
+//       // Update payment details with timestamp
+//       if (!this.paymentDetails) {
+//         this.paymentDetails = {};
+//       }
+//       this.paymentDetails.paidAt = new Date();
+//       this.paymentDetails.paidBy = 'System (Auto-updated on delivery)';
+//     }
 //   }
   
+//   // Handle other statuses
 //   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
 //     this.deliveryService.pickedUpDate = new Date();
 //   }
   
 //   if (status === 'delivered') {
-//     this.orderStatus = 'delivered';
-//     this.deliveredAt = new Date();
-//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
+//     this.deliveryService.actualDeliveryDate = new Date();
 //   }
   
 //   return this;
 // };
+// models/Order.js - Update updateDeliveryStatus method
 
-// In Order.js - Update the updateDeliveryStatus method
+// models/Order.js - Add/update this method
 
-// ========== UPDATE DELIVERY STATUS METHOD ==========
 /**
  * Update delivery status with history
  * Auto-updates payment status for COD orders when delivered
@@ -1419,7 +1543,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
   this.deliveryService.deliveryStatusHistory.push({
     status,
     message: message || `Status updated to ${status}`,
-    location,
+    location: location || '',
     timestamp: new Date()
   });
   
@@ -1440,7 +1564,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
         this.paymentDetails = {};
       }
       this.paymentDetails.paidAt = new Date();
-      this.paymentDetails.paidBy = 'System (Auto-updated on delivery)';
+      this.paymentDetails.paidBy = 'System (Auto-updated via webhook)';
     }
   }
   
@@ -1455,7 +1579,6 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
   
   return this;
 };
-
 /**
  * Set delivery service information
  */
