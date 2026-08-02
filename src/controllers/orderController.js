@@ -7335,6 +7335,8 @@ const createDeliveryOrder = async (req, res) => {
 
 // controllers/orderController.js - Updated getOrderTracking
 
+// controllers/orderController.js - Fix getOrderTracking
+
 const getOrderTracking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -7358,7 +7360,7 @@ const getOrderTracking = async (req, res) => {
     const integration = await getCourierIntegration(courierSlug);
     
     if (!integration || !integration.creds) {
-      // Return existing data
+      // Return existing data WITHOUT saving
       return res.json({
         success: true,
         data: {
@@ -7385,79 +7387,96 @@ const getOrderTracking = async (req, res) => {
     
     console.log('📦 Raw tracking result:', JSON.stringify(result, null, 2));
     
-    // ✅ IMPORTANT: Extract the actual courier status from the result
+    // ✅ IMPORTANT: Don't save if tracking fails
+    if (!result.success) {
+      console.log('⚠️ Tracking failed:', result.message);
+      
+      // ✅ Return existing data WITHOUT saving
+      return res.json({
+        success: true,
+        data: {
+          trackingNumber: order.deliveryService.trackingNumber,
+          courierName: order.deliveryService.courierName,
+          courierSlug: order.deliveryService.courierSlug,
+          trackingUrl: order.deliveryService.trackingUrl,
+          deliveryStatus: order.deliveryService.deliveryStatus || 'pending',
+          history: order.deliveryService.deliveryStatusHistory || [],
+          courierOrderId: order.deliveryService.courierOrderId,
+          labelUrl: order.deliveryService.labelUrl,
+          invoiceUrl: order.deliveryService.invoiceUrl,
+          weight: order.deliveryService.weight,
+          deliveryNote: order.deliveryService.deliveryNote,
+          paymentStatus: order.paymentStatus,
+          orderStatus: order.orderStatus,
+          trackingStatus: order.deliveryService.deliveryStatus || 'pending',
+          trackingMessage: result.message || 'Tracking info not available',
+          error: result.message
+        }
+      });
+    }
+    
+    // ✅ Extract the actual courier status
     let courierStatus = order.deliveryService.deliveryStatus || 'pending';
     
     // Try multiple ways to get the status
-    if (result.success) {
-      // ✅ Check all possible status fields
-      if (result.status) {
-        courierStatus = result.status;
-      } else if (result.data?.status) {
-        courierStatus = result.data.status;
-      } else if (result.data?.delivery_status) {
-        courierStatus = result.data.delivery_status;
-      } else if (result.fullResponse?.status) {
-        courierStatus = result.fullResponse.status;
-      } else if (result.fullResponse?.data?.status) {
-        courierStatus = result.fullResponse.data.status;
-      } else if (result.trackingStatus) {
-        courierStatus = result.trackingStatus;
-      }
-      
-      // ✅ If status is still 'pending' or 'processing', check the history
-      if (courierStatus === 'pending' || courierStatus === 'processing') {
-        // Try to get status from history
-        if (result.history && result.history.length > 0) {
-          const lastHistory = result.history[result.history.length - 1];
-          if (lastHistory && lastHistory.status) {
-            courierStatus = lastHistory.status;
-          }
-        }
-      }
-      
-      console.log(`📌 Extracted courier status: ${courierStatus}`);
-      
-      // ✅ If the status is different from what's stored, UPDATE THE DATABASE
-      if (courierStatus !== order.deliveryService.deliveryStatus) {
-        console.log(`📦 Updating order ${order.orderNumber} status from ${order.deliveryService.deliveryStatus} to ${courierStatus}`);
-        
-        // Update delivery status
-        order.deliveryService.deliveryStatus = courierStatus;
-        
-        // Add to history
-        if (!order.deliveryService.deliveryStatusHistory) {
-          order.deliveryService.deliveryStatusHistory = [];
-        }
-        
-        order.deliveryService.deliveryStatusHistory.push({
-          status: courierStatus,
-          message: result.message || `Status updated to ${courierStatus}`,
-          location: result.location || '',
-          timestamp: new Date()
-        });
-        
-        // ✅ If delivered, update order status too
-        if (courierStatus === 'delivered') {
-          order.orderStatus = 'delivered';
-          order.deliveredAt = new Date();
-          
-          // Auto-update payment for COD
-          if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
-            order.paymentStatus = 'paid';
-            console.log(`💰 Order ${order.orderNumber}: Payment auto-updated to Paid`);
-          }
-        }
-        
-        // ✅ SAVE to database
-        await order.save();
-        console.log(`✅ Order ${order.orderNumber} status updated to ${courierStatus} in database`);
-      }
-    } else {
-      console.log('⚠️ Tracking result failed:', result.message);
+    if (result.status) {
+      courierStatus = result.status;
+    } else if (result.data?.status) {
+      courierStatus = result.data.status;
+    } else if (result.data?.delivery_status) {
+      courierStatus = result.data.delivery_status;
+    } else if (result.fullResponse?.status) {
+      courierStatus = result.fullResponse.status;
+    } else if (result.fullResponse?.data?.status) {
+      courierStatus = result.fullResponse.data.status;
+    } else if (result.trackingStatus) {
+      courierStatus = result.trackingStatus;
     }
     
-    // Prepare response with the updated status
+    console.log(`📌 Extracted courier status: ${courierStatus}`);
+    
+    // ✅ Only update the database if the status is different AND valid
+    // Don't overwrite a valid status with 'processing' or 'pending'
+    const invalidStatuses = ['processing', 'pending', 'unknown'];
+    const isValidStatus = !invalidStatuses.includes(courierStatus);
+    
+    if (courierStatus !== order.deliveryService.deliveryStatus && isValidStatus) {
+      console.log(`📦 Updating order ${order.orderNumber} status from ${order.deliveryService.deliveryStatus} to ${courierStatus}`);
+      
+      // Update delivery status
+      order.deliveryService.deliveryStatus = courierStatus;
+      
+      // Add to history
+      if (!order.deliveryService.deliveryStatusHistory) {
+        order.deliveryService.deliveryStatusHistory = [];
+      }
+      
+      order.deliveryService.deliveryStatusHistory.push({
+        status: courierStatus,
+        message: result.message || `Status updated to ${courierStatus}`,
+        location: result.location || '',
+        timestamp: new Date()
+      });
+      
+      // If delivered, update order status too
+      if (courierStatus === 'delivered') {
+        order.orderStatus = 'delivered';
+        order.deliveredAt = new Date();
+        
+        // Auto-update payment for COD
+        if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
+          order.paymentStatus = 'paid';
+          console.log(`💰 Order ${order.orderNumber}: Payment auto-updated to Paid`);
+        }
+      }
+      
+      await order.save();
+      console.log(`✅ Order ${order.orderNumber} status updated to ${courierStatus} in database`);
+    } else if (!isValidStatus && courierStatus !== order.deliveryService.deliveryStatus) {
+      console.log(`⚠️ Not updating order ${order.orderNumber} - invalid status '${courierStatus}' received from courier`);
+    }
+    
+    // Prepare response with the current status
     const responseData = {
       trackingNumber: order.deliveryService.trackingNumber,
       courierName: order.deliveryService.courierName,
@@ -7486,6 +7505,28 @@ const getOrderTracking = async (req, res) => {
     
   } catch (error) {
     console.error('Get tracking error:', error);
+    
+    // ✅ On error, return the existing data WITHOUT saving
+    try {
+      const order = await Order.findById(req.params.id);
+      if (order && order.deliveryService) {
+        return res.json({
+          success: true,
+          data: {
+            trackingNumber: order.deliveryService.trackingNumber,
+            courierName: order.deliveryService.courierName,
+            courierSlug: order.deliveryService.courierSlug,
+            trackingUrl: order.deliveryService.trackingUrl,
+            deliveryStatus: order.deliveryService.deliveryStatus || 'pending',
+            history: order.deliveryService.deliveryStatusHistory || [],
+            error: error.message
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+    
     res.status(500).json({ 
       success: false, 
       error: error.message 
