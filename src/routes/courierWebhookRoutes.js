@@ -538,14 +538,19 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+
+// ✅ FIX: Correct import paths for Vercel
+// If your models are in the root 'models' folder
 const Order = require('../models/Order');
-const Courier = require('../models/Courier'); // 🆕 Import Courier model
+const Courier = require('../models/Courier');
+
+// If your models are in 'src/models', use:
+// const Order = require('../src/models/Order');
+// const Courier = require('../src/models/Courier');
 
 // ============================================================
-// ✅ COMPLETE STATUS MAPPING FOR ALL COURIERS
+// ✅ STATUS MAPPING - Direct match (keep original status)
 // ============================================================
-
-// routes/courierWebhookRoutes.js
 
 const STATUS_MAP = {
     // ========== PATHAO STATUSES (Direct match) ==========
@@ -589,58 +594,21 @@ const STATUS_MAP = {
     'unknown': 'unknown',
 };
 
-// Display labels for frontend (Human readable)
-const STATUS_DISPLAY = {
-    // Pathao
-    'order.created': 'Order Created',
-    'order.updated': 'Order Updated',
-    'pickup.requested': 'Pickup Requested',
-    'assigned.for.pickup': 'Assigned For Pickup',
-    'pickup': 'Picked',
-    'pickup.failed': 'Pickup Failed',
-    'pickup.cancelled': 'Pickup Cancelled',
-    'at.the.sorting.hub': 'At Sorting Hub',
-    'in.transit': 'In Transit',
-    'received.at.last.mile.hub': 'Received at Last Mile Hub',
-    'assigned.for.delivery': 'Assigned for Delivery',
-    'delivered': 'Delivered ✅',
-    'partial.delivery': 'Partial Delivery',
-    'return': 'Return',
-    'delivery.failed': 'Delivery Failed',
-    'on.hold': 'On Hold',
-    'payment.invoice': 'Payment Invoice',
-    'paid.return': 'Paid Return',
-    'exchange': 'Exchange',
-    'return.id.created': 'Return ID Created',
-    'return.in.transit': 'Return In Transit',
-    'returned.to.merchant': 'Returned To Merchant',
-    
-    // RedX
-    'ready-for-delivery': 'Ready for Delivery',
-    'delivery-in-progress': 'Delivery In Progress',
-    'agent-hold': 'Agent Hold',
-    'agent-returning': 'Agent Returning',
-    'returned': 'Returned',
-    'agent-area-change': 'Agent Area Change',
-    
-    // Steadfast
-    'pending': 'Pending',
-    'partial_delivered': 'Partial Delivered',
-    'cancelled': 'Cancelled',
-    'unknown': 'Unknown',
-};
-
 // ============================================================
 // ✅ HELPER: Get Webhook Config from Database
 // ============================================================
 
 async function getWebhookConfig(courierSlug) {
     try {
+        console.log(`🔍 Fetching webhook config for: ${courierSlug}`);
         const courier = await Courier.findOne({ slug: courierSlug });
+        
         if (!courier) {
             console.log(`⚠️ Courier not found: ${courierSlug}`);
             return null;
         }
+        
+        console.log(`✅ Courier found: ${courier.name}`);
         
         return {
             enabled: courier.webhookConfig?.enabled || false,
@@ -656,35 +624,14 @@ async function getWebhookConfig(courierSlug) {
 }
 
 // ============================================================
-// ✅ HELPER: Normalize Status
-// ============================================================
-function normalizeStatus(status, courier) {
-    if (!status) {
-        console.log('⚠️ No status provided, defaulting to unknown');
-        return 'unknown';
-    }
-    
-    // Convert to lowercase for case-insensitive matching
-    const normalized = status.toLowerCase().trim();
-    console.log(`🔄 Normalizing status: "${status}" -> "${normalized}"`);
-    
-    // ✅ FIX: Return the status as-is, don't map to "processing"
-    // The frontend will handle display using STATUS_DISPLAY
-    return normalized;
-}
-
-// ============================================================
 // ✅ HELPER: Extract Status from Payload
 // ============================================================
-
-// routes/courierWebhookRoutes.js
 
 function extractStatus(payload, courier) {
     console.log(`🔍 Extracting status from ${courier} payload:`, JSON.stringify(payload, null, 2));
     
     switch (courier) {
         case 'pathao':
-            // Pathao uses 'event' field
             if (payload.event) {
                 console.log(`📌 Pathao event: ${payload.event}`);
                 return payload.event;
@@ -692,7 +639,6 @@ function extractStatus(payload, courier) {
             break;
             
         case 'redx':
-            // RedX uses 'status' field
             if (payload.status) {
                 console.log(`📌 RedX status: ${payload.status}`);
                 return payload.status;
@@ -700,7 +646,6 @@ function extractStatus(payload, courier) {
             break;
             
         case 'steadfast':
-            // Steadfast uses 'status' field
             if (payload.status) {
                 console.log(`📌 Steadfast status: ${payload.status}`);
                 return payload.status;
@@ -717,12 +662,8 @@ function extractStatus(payload, courier) {
 }
 
 // ============================================================
-// ✅ Webhook Handler
+// ✅ Webhook Handler - Simplified and Fixed
 // ============================================================
-
-// routes/courierWebhookRoutes.js
-
-// routes/courierWebhookRoutes.js
 
 async function handleWebhookUpdate(orderId, status, message, location, courierSlug, rawData = {}) {
     try {
@@ -735,15 +676,8 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             return { success: false, error: 'Order not found' };
         }
 
-        // ✅ FIX: Don't normalize the status, keep it as-is
-        // The frontend will display it correctly
-        const actualStatus = status; // Keep the original status
-        
-        // For backward compatibility, if the status is "delivered", also update order status
-        if (actualStatus === 'delivered') {
-            order.orderStatus = 'delivered';
-            order.deliveredAt = new Date();
-        }
+        // ✅ Keep the original status
+        const actualStatus = status;
         
         console.log(`📌 Storing status: "${actualStatus}"`);
         
@@ -757,7 +691,12 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
 
         const oldPaymentStatus = order.paymentStatus;
 
-        // ✅ Store the actual status, not a mapped one
+        // ✅ Initialize deliveryService if it doesn't exist
+        if (!order.deliveryService) {
+            order.deliveryService = {};
+        }
+
+        // ✅ Store the actual status
         order.deliveryService.deliveryStatus = actualStatus;
         
         // Add to history
@@ -772,7 +711,7 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             timestamp: new Date()
         });
 
-        // Store raw webhook data for reference
+        // Store raw webhook data
         if (!order.deliveryService.webhookData) {
             order.deliveryService.webhookData = [];
         }
@@ -784,6 +723,18 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             status: actualStatus,
             message: message
         });
+
+        // ✅ If status is delivered, update order status too
+        if (actualStatus === 'delivered') {
+            order.orderStatus = 'delivered';
+            order.deliveredAt = new Date();
+            
+            // Auto-update payment for COD
+            if (order.paymentMethod === 'cod' && order.paymentStatus !== 'paid') {
+                order.paymentStatus = 'paid';
+                console.log(`💰 Order ${order.orderNumber}: Payment auto-updated to Paid`);
+            }
+        }
 
         await order.save();
 
@@ -804,12 +755,13 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
         };
     } catch (error) {
         console.error('❌ Webhook handler error:', error);
+        console.error('❌ Error stack:', error.stack);
         return { success: false, error: error.message };
     }
 }
 
 // ============================================================
-// ✅ PATHAO WEBHOOK - Uses Database Secret
+// ✅ PATHAO WEBHOOK - With Better Error Handling
 // ============================================================
 
 router.post('/pathao', async (req, res) => {
@@ -819,7 +771,9 @@ router.post('/pathao', async (req, res) => {
         console.log('Body:', JSON.stringify(req.body, null, 2));
 
         // ========== GET WEBHOOK CONFIG FROM DATABASE ==========
+        console.log('🔍 Fetching webhook config...');
         const webhookConfig = await getWebhookConfig('pathao');
+        console.log('📋 Webhook config:', JSON.stringify(webhookConfig, null, 2));
         
         if (!webhookConfig || !webhookConfig.enabled) {
             console.warn('⚠️ Pathao webhooks are disabled or not configured');
@@ -857,28 +811,46 @@ router.post('/pathao', async (req, res) => {
         const trackingRef = req.body.consignment_id || req.body.merchant_order_id || req.body.tracking_id;
         
         console.log(`📌 Extracted Pathao status: ${status}`);
+        console.log(`📌 Tracking ref: ${trackingRef}`);
 
+        if (!trackingRef) {
+            console.warn('⚠️ No tracking reference found');
+            return res.status(202).json({ 
+                success: false, 
+                error: 'No tracking reference provided' 
+            });
+        }
+
+        // ========== FIND ORDER ==========
         let order = null;
+        
+        // Try by tracking number
         if (trackingRef) {
+            console.log(`🔍 Looking for order with tracking number: ${trackingRef}`);
             order = await Order.findOne({
                 'deliveryService.trackingNumber': trackingRef
             });
         }
 
+        // Try by courier order ID
         if (!order && req.body.merchant_order_id) {
+            console.log(`🔍 Looking for order with merchant_order_id: ${req.body.merchant_order_id}`);
             order = await Order.findOne({
                 'deliveryService.courierOrderId': req.body.merchant_order_id
             });
         }
 
         if (!order) {
-            console.warn('⚠️ Order not found for Pathao webhook:', { trackingRef });
+            console.warn('⚠️ Order not found for Pathao webhook:', { trackingRef, merchant_order_id: req.body.merchant_order_id });
             return res.status(202).json({ 
                 success: false, 
                 error: 'Order not found' 
             });
         }
 
+        console.log(`✅ Order found: ${order.orderNumber} (${order._id})`);
+
+        // ========== PROCESS WEBHOOK ==========
         const result = await handleWebhookUpdate(
             order._id,
             status,
@@ -888,6 +860,8 @@ router.post('/pathao', async (req, res) => {
             req.body
         );
 
+        console.log('✅ Webhook processed result:', result);
+
         return res.status(202).json({
             success: result.success,
             message: result.success ? 'Webhook processed' : result.error,
@@ -896,15 +870,17 @@ router.post('/pathao', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Pathao webhook error:', error);
+        console.error('❌ Error stack:', error.stack);
         return res.status(202).json({ 
             success: false, 
-            error: error.message 
+            error: error.message,
+            stack: error.stack 
         });
     }
 });
 
 // ============================================================
-// ✅ REDX WEBHOOK - Uses Database Token
+// ✅ REDX WEBHOOK - With Better Error Handling
 // ============================================================
 
 router.post('/redx', async (req, res) => {
@@ -914,7 +890,6 @@ router.post('/redx', async (req, res) => {
         console.log('Query:', JSON.stringify(req.query, null, 2));
         console.log('Body:', JSON.stringify(req.body, null, 2));
 
-        // ========== GET WEBHOOK CONFIG FROM DATABASE ==========
         const webhookConfig = await getWebhookConfig('redx');
         
         if (!webhookConfig || !webhookConfig.enabled) {
@@ -988,7 +963,7 @@ router.post('/redx', async (req, res) => {
 });
 
 // ============================================================
-// ✅ STEADFAST WEBHOOK - Uses Database Bearer Token
+// ✅ STEADFAST WEBHOOK - With Better Error Handling
 // ============================================================
 
 router.post('/steadfast', async (req, res) => {
@@ -997,7 +972,6 @@ router.post('/steadfast', async (req, res) => {
         console.log('Headers:', JSON.stringify(req.headers, null, 2));
         console.log('Body:', JSON.stringify(req.body, null, 2));
 
-        // ========== GET WEBHOOK CONFIG FROM DATABASE ==========
         const webhookConfig = await getWebhookConfig('steadfast');
         
         if (!webhookConfig || !webhookConfig.enabled) {
@@ -1079,14 +1053,12 @@ router.post('/test', async (req, res) => {
     console.log('Body:', JSON.stringify(req.body, null, 2));
     
     const status = extractStatus(req.body, req.body.courier || 'test');
-    const normalized = normalizeStatus(status, req.body.courier || 'test');
     
     res.json({ 
         success: true, 
         message: 'Webhook test received',
         extracted: {
             rawStatus: status,
-            normalized: normalized,
             courier: req.body.courier || 'test'
         },
         data: req.body 
@@ -1094,12 +1066,11 @@ router.post('/test', async (req, res) => {
 });
 
 // ============================================================
-// ✅ STATUS ENDPOINT - Now reads from Database
+// ✅ STATUS ENDPOINT
 // ============================================================
 
 router.get('/status', async (req, res) => {
     try {
-        // Get webhook configs from database
         const pathaoConfig = await getWebhookConfig('pathao');
         const redxConfig = await getWebhookConfig('redx');
         const steadfastConfig = await getWebhookConfig('steadfast');
