@@ -6951,27 +6951,56 @@ const createDeliveryOrder = async (req, res) => {
     const oldStatus = order.orderStatus;
     
     // Update order with delivery info
-    order.deliveryService = {
-      courierId: integration.id,
-      courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
-      courierSlug: courierSlug,
-      trackingNumber: result.trackingNumber || null,
-      trackingUrl: result.trackingUrl || '',
-      courierOrderId: result.courierOrderId || null,
-      courierResponse: result.fullResponse || {},
-      deliveryStatus: 'processing',
-      labelUrl: result.labelUrl || '',
-      invoiceUrl: result.invoiceUrl || '',
-      deliveryNote: deliveryNote || '',
-      weight: weight || 0.5,
-      deliveryStatusHistory: [
+    // order.deliveryService = {
+    //   courierId: integration.id,
+    //   courierName: courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1),
+    //   courierSlug: courierSlug,
+    //   trackingNumber: result.trackingNumber || null,
+    //   trackingUrl: result.trackingUrl || '',
+    //   courierOrderId: result.courierOrderId || null,
+    //   courierResponse: result.fullResponse || {},
+    //   deliveryStatus: 'processing',
+    //   labelUrl: result.labelUrl || '',
+    //   invoiceUrl: result.invoiceUrl || '',
+    //   deliveryNote: deliveryNote || '',
+    //   weight: weight || 0.5,
+    //   deliveryStatusHistory: [
+    //     {
+    //       status: 'processing',
+    //       message: `Delivery order created with ${courierSlug} courier service`,
+    //       timestamp: new Date()
+    //     }
+    //   ]
+    // };
+    // In createDeliveryOrder function - after getting result from RedX
+
+// Update order with delivery info
+order.deliveryService = {
+    courierId: integration.id,
+    courierName: 'RedX', // or courierSlug.charAt(0).toUpperCase() + courierSlug.slice(1)
+    courierSlug: courierSlug,
+    trackingNumber: result.trackingNumber || null,
+    trackingUrl: result.trackingUrl || '',
+    courierOrderId: result.courierOrderId || null,
+    courierResponse: {
+        ...result.fullResponse,
+        // ✅ Store the exact tracking number and invoice from RedX response
+        tracking_number: result.trackingNumber || result.fullResponse?.tracking_id,
+        invoice_number: result.fullResponse?.invoice_number || order.orderNumber,
+    },
+    deliveryStatus: 'processing',
+    labelUrl: result.labelUrl || '',
+    invoiceUrl: result.invoiceUrl || '',
+    deliveryNote: deliveryNote || '',
+    weight: weight || 0.5,
+    deliveryStatusHistory: [
         {
-          status: 'processing',
-          message: `Delivery order created with ${courierSlug} courier service`,
-          timestamp: new Date()
+            status: 'processing',
+            message: `Delivery order created with ${courierSlug} courier service`,
+            timestamp: new Date()
         }
-      ]
-    };
+    ]
+};
     
     // Update order status
     order.trackingNumber = result.trackingNumber || null;

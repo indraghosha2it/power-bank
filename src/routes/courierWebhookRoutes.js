@@ -665,6 +665,8 @@ function extractStatus(payload, courier) {
 // ✅ Webhook Handler - Simplified and Fixed
 // ============================================================
 
+// routes/courierWebhookRoutes.js - Updated handleWebhookUpdate
+
 async function handleWebhookUpdate(orderId, status, message, location, courierSlug, rawData = {}) {
     try {
         console.log(`📦 Processing webhook for order ${orderId} from ${courierSlug}`);
@@ -681,7 +683,12 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
         
         console.log(`📌 Storing status: "${actualStatus}"`);
         
-        const currentStatus = order.deliveryService?.deliveryStatus || 'pending';
+        // ✅ Initialize deliveryService if it doesn't exist
+        if (!order.deliveryService) {
+            order.deliveryService = {};
+        }
+
+        const currentStatus = order.deliveryService.deliveryStatus || 'pending';
         console.log(`📌 Current stored status: "${currentStatus}"`);
         
         if (currentStatus === actualStatus) {
@@ -690,11 +697,6 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
         }
 
         const oldPaymentStatus = order.paymentStatus;
-
-        // ✅ Initialize deliveryService if it doesn't exist
-        if (!order.deliveryService) {
-            order.deliveryService = {};
-        }
 
         // ✅ Store the actual status
         order.deliveryService.deliveryStatus = actualStatus;
@@ -883,6 +885,88 @@ router.post('/pathao', async (req, res) => {
 // ✅ REDX WEBHOOK - With Better Error Handling
 // ============================================================
 
+// router.post('/redx', async (req, res) => {
+//     try {
+//         console.log('📡 RedX webhook received');
+//         console.log('Headers:', JSON.stringify(req.headers, null, 2));
+//         console.log('Query:', JSON.stringify(req.query, null, 2));
+//         console.log('Body:', JSON.stringify(req.body, null, 2));
+
+//         const webhookConfig = await getWebhookConfig('redx');
+        
+//         if (!webhookConfig || !webhookConfig.enabled) {
+//             console.warn('⚠️ RedX webhooks are disabled or not configured');
+//             return res.status(401).json({ 
+//                 success: false, 
+//                 error: 'Webhooks not configured' 
+//             });
+//         }
+
+//         const token = req.query.token || req.query.api_key || req.query.secret;
+//         const expectedToken = webhookConfig.token;
+
+//         if (expectedToken && token !== expectedToken) {
+//             console.warn('⚠️ Invalid RedX token');
+//             return res.status(401).json({ 
+//                 success: false, 
+//                 error: 'Invalid token' 
+//             });
+//         }
+
+//         const status = extractStatus(req.body, 'redx');
+//         const message = req.body.message_en || req.body.message_bn || `RedX: ${status}`;
+//         const trackingRef = req.body.tracking_number || req.body.invoice_number;
+        
+//         console.log(`📌 Extracted RedX status: ${status}`);
+
+//         let order = null;
+//         if (trackingRef) {
+//             order = await Order.findOne({
+//                 'deliveryService.trackingNumber': trackingRef
+//             });
+//         }
+
+//         if (!order && req.body.invoice_number) {
+//             order = await Order.findOne({
+//                 'deliveryService.courierOrderId': req.body.invoice_number
+//             });
+//         }
+
+//         if (!order) {
+//             console.warn('⚠️ Order not found for RedX webhook:', { trackingRef });
+//             return res.status(404).json({ 
+//                 success: false, 
+//                 error: 'Order not found' 
+//             });
+//         }
+
+//         const result = await handleWebhookUpdate(
+//             order._id,
+//             status,
+//             message,
+//             null,
+//             'redx',
+//             req.body
+//         );
+
+//         return res.status(200).json({
+//             success: result.success,
+//             message: result.success ? 'Webhook processed successfully' : result.error,
+//             data: result.order
+//         });
+
+//     } catch (error) {
+//         console.error('❌ RedX webhook error:', error);
+//         return res.status(500).json({ 
+//             success: false, 
+//             error: error.message 
+//         });
+//     }
+// });
+// routes/courierWebhookRoutes.js - Updated RedX Webhook
+
+// routes/courierWebhookRoutes.js - Updated RedX Webhook
+
 router.post('/redx', async (req, res) => {
     try {
         console.log('📡 RedX webhook received');
@@ -911,33 +995,100 @@ router.post('/redx', async (req, res) => {
             });
         }
 
+        // ========== EXTRACT STATUS ==========
         const status = extractStatus(req.body, 'redx');
         const message = req.body.message_en || req.body.message_bn || `RedX: ${status}`;
-        const trackingRef = req.body.tracking_number || req.body.invoice_number;
+        
+        // ✅ Try ALL possible tracking fields
+        const trackingRef = req.body.tracking_number || 
+                           req.body.consignment_id || 
+                           req.body.order_id || 
+                           req.body.parcel_id;
+        
+        const invoiceRef = req.body.invoice_number || req.body.merchant_invoice_id;
         
         console.log(`📌 Extracted RedX status: ${status}`);
+        console.log(`📌 Tracking ref: ${trackingRef}`);
+        console.log(`📌 Invoice ref: ${invoiceRef}`);
 
+        // ========== FIND ORDER - TRY MULTIPLE METHODS ==========
         let order = null;
+        
+        // Method 1: Try by trackingNumber (stored in deliveryService)
         if (trackingRef) {
             order = await Order.findOne({
                 'deliveryService.trackingNumber': trackingRef
             });
+            console.log(`🔍 Method 1 - trackingNumber: ${trackingRef}`, order ? '✅ Found' : '❌ Not found');
         }
 
-        if (!order && req.body.invoice_number) {
+        // Method 2: Try by courierOrderId
+        if (!order && trackingRef) {
             order = await Order.findOne({
-                'deliveryService.courierOrderId': req.body.invoice_number
+                'deliveryService.courierOrderId': trackingRef
             });
+            console.log(`🔍 Method 2 - courierOrderId: ${trackingRef}`, order ? '✅ Found' : '❌ Not found');
+        }
+
+        // Method 3: Try by invoice number (if provided)
+        if (!order && invoiceRef) {
+            order = await Order.findOne({
+                'deliveryService.courierOrderId': invoiceRef
+            });
+            console.log(`🔍 Method 3 - invoice: ${invoiceRef}`, order ? '✅ Found' : '❌ Not found');
+        }
+
+        // Method 4: Try by orderNumber (if RedX sends it)
+        if (!order && req.body.merchant_order_id) {
+            order = await Order.findOne({
+                orderNumber: req.body.merchant_order_id
+            });
+            console.log(`🔍 Method 4 - merchant_order_id: ${req.body.merchant_order_id}`, order ? '✅ Found' : '❌ Not found');
+        }
+
+        // Method 5: Try to find by invoice number in the orderNumber field
+        if (!order && invoiceRef) {
+            order = await Order.findOne({
+                orderNumber: invoiceRef
+            });
+            console.log(`🔍 Method 5 - orderNumber by invoice: ${invoiceRef}`, order ? '✅ Found' : '❌ Not found');
+        }
+
+        // Method 6: Try by tracking number in courierResponse (RedX might store it there)
+        if (!order && trackingRef) {
+            order = await Order.findOne({
+                'deliveryService.courierResponse.tracking_number': trackingRef
+            });
+            console.log(`🔍 Method 6 - courierResponse.tracking_number: ${trackingRef}`, order ? '✅ Found' : '❌ Not found');
         }
 
         if (!order) {
-            console.warn('⚠️ Order not found for RedX webhook:', { trackingRef });
+            console.warn('⚠️ Order not found for RedX webhook:', { 
+                trackingRef, 
+                invoiceRef,
+                body: req.body 
+            });
+            
+            // Log all orders with delivery service for debugging
+            const allOrdersWithDelivery = await Order.find({
+                'deliveryService.courierSlug': 'redx'
+            }).select('orderNumber deliveryService.trackingNumber deliveryService.courierOrderId');
+            console.log('📋 All RedX orders in system:', allOrdersWithDelivery.map(o => ({
+                orderNumber: o.orderNumber,
+                trackingNumber: o.deliveryService?.trackingNumber,
+                courierOrderId: o.deliveryService?.courierOrderId
+            })));
+            
             return res.status(404).json({ 
                 success: false, 
-                error: 'Order not found' 
+                error: 'Order not found',
+                received: { trackingRef, invoiceRef }
             });
         }
 
+        console.log(`✅ Order found: ${order.orderNumber} (${order._id})`);
+
+        // ========== PROCESS WEBHOOK ==========
         const result = await handleWebhookUpdate(
             order._id,
             status,
@@ -947,6 +1098,8 @@ router.post('/redx', async (req, res) => {
             req.body
         );
 
+        console.log('✅ RedX webhook processed:', result);
+
         return res.status(200).json({
             success: result.success,
             message: result.success ? 'Webhook processed successfully' : result.error,
@@ -955,11 +1108,30 @@ router.post('/redx', async (req, res) => {
 
     } catch (error) {
         console.error('❌ RedX webhook error:', error);
+        console.error('❌ Error stack:', error.stack);
         return res.status(500).json({ 
             success: false, 
             error: error.message 
         });
     }
+});
+
+// routes/courierWebhookRoutes.js - Debug endpoint
+
+router.post('/redx-debug', async (req, res) => {
+    console.log('🔍 RedX DEBUG webhook received');
+    console.log('📋 Full Body:', JSON.stringify(req.body, null, 2));
+    console.log('📋 Query:', JSON.stringify(req.query, null, 2));
+    console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+    
+    res.json({
+        success: true,
+        message: 'Debug webhook received',
+        received: {
+            body: req.body,
+            query: req.query
+        }
+    });
 });
 
 // ============================================================
