@@ -823,8 +823,6 @@
 // module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
 
 
-
-
 // models/Order.js
 
 const mongoose = require('mongoose');
@@ -942,7 +940,7 @@ const customerInfoSchema = new mongoose.Schema({
 const orderStatusHistorySchema = new mongoose.Schema({
   status: { 
     type: String, 
-     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned'],
+    enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'failed', 'returned'],
     required: true 
   },
   note: { 
@@ -966,10 +964,10 @@ const orderStatusHistorySchema = new mongoose.Schema({
 }, { _id: true });
 
 // ========== DELIVERY STATUS HISTORY SCHEMA ==========
+// ✅ FIX: Remove enum validation
 const deliveryStatusHistorySchema = new mongoose.Schema({
   status: { 
-    type: String, 
-    enum: ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'],
+    type: String,  // ❌ REMOVED enum validation
     required: true 
   },
   message: { 
@@ -987,6 +985,7 @@ const deliveryStatusHistorySchema = new mongoose.Schema({
 }, { _id: true });
 
 // ========== DELIVERY SERVICE SCHEMA ==========
+// ✅ FIX: Remove enum validation from deliveryStatus
 const deliveryServiceSchema = new mongoose.Schema({
   courierId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -1021,8 +1020,7 @@ const deliveryServiceSchema = new mongoose.Schema({
     default: '' 
   },
   deliveryStatus: { 
-    type: String, 
-    enum: ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'],
+    type: String,  // ❌ REMOVED enum validation
     default: 'pending' 
   },
   deliveryStatusHistory: [deliveryStatusHistorySchema],
@@ -1070,7 +1068,16 @@ const deliveryServiceSchema = new mongoose.Schema({
   metadata: { 
     type: mongoose.Schema.Types.Mixed, 
     default: {} 
-  }
+  },
+  // ✅ ADD: webhookData for storing raw webhook payloads
+  webhookData: [{
+    courier: String,
+    timestamp: Date,
+    rawData: mongoose.Schema.Types.Mixed,
+    rawStatus: String,
+    status: String,
+    message: String
+  }]
 }, { _id: false });
 
 // ========== DEVICE INFO SCHEMA ==========
@@ -1189,7 +1196,7 @@ const orderSchema = new mongoose.Schema({
   // Order Status
   orderStatus: { 
     type: String, 
-     enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed'],
+    enum: ['placed', 'follow_up', 'accepted', 'approved', 'ready_to_ship', 'courier_assigned', 'rejected', 'cancelled', 'reminder', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'refunded', 'returned', 'failed'],
     default: 'placed' 
   },
   
@@ -1253,15 +1260,14 @@ const orderSchema = new mongoose.Schema({
     type: Date, 
     default: null 
   },
-   approvedAt: { 
+  approvedAt: { 
     type: Date, 
     default: null 
   },
   returnedAt: { 
-  type: Date, 
-  default: null 
-},
-  
+    type: Date, 
+    default: null 
+  },
   rejectionReason: { 
     type: String, 
     default: '' 
@@ -1271,10 +1277,10 @@ const orderSchema = new mongoose.Schema({
     default: '' 
   },
   restrictionViolation: {
-  type: String,
-  enum: ['ip_blocked', 'phone_blocked', 'email_blocked', 'ip_time_interval', 'phone_time_interval', 'none'],
-  default: 'none'
-},
+    type: String,
+    enum: ['ip_blocked', 'phone_blocked', 'email_blocked', 'ip_time_interval', 'phone_time_interval', 'none'],
+    default: 'none'
+  },
   
   // Metadata
   metadata: { 
@@ -1384,7 +1390,7 @@ orderSchema.methods.addStatusHistory = function(status, note = '', updatedBy = n
     this.statusHistory = [];
   }
   
-  const lastEntry = this.statusHistory[this.statusHistory.length - 1];
+  const lastEntry = this.statusHistory[this.statusHistory.length -  ][1];
   if (lastEntry && lastEntry.status === status && lastEntry.note === note) {
     return this;
   }
@@ -1447,74 +1453,7 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
   return this;
 };
 
-
-//  * Update delivery status with history
-//  * Auto-updates payment status for COD orders when delivered
-//  */
-// orderSchema.methods.updateDeliveryStatus = function(status, message = '', location = '') {
-//   if (!this.deliveryService) {
-//     this.deliveryService = {};
-//   }
-  
-//   const validStatuses = ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'];
-  
-//   if (!validStatuses.includes(status)) {
-//     throw new Error(`Invalid delivery status: ${status}`);
-//   }
-  
-//   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
-  
-//   // Update delivery status
-//   this.deliveryService.deliveryStatus = status;
-  
-//   // Add to history
-//   if (!this.deliveryService.deliveryStatusHistory) {
-//     this.deliveryService.deliveryStatusHistory = [];
-//   }
-  
-//   this.deliveryService.deliveryStatusHistory.push({
-//     status,
-//     message: message || `Status updated to ${status}`,
-//     location,
-//     timestamp: new Date()
-//   });
-  
-//   // ========== AUTO-UPDATE ON DELIVERY ==========
-//   if (status === 'delivered') {
-//     // 1. Update order status
-//     this.orderStatus = 'delivered';
-//     this.deliveredAt = new Date();
-//     this.addStatusHistory('delivered', 'Order delivered by courier', null, 'courier');
-    
-//     // 2. ========== AUTO-UPDATE PAYMENT STATUS FOR COD ==========
-//     if (this.paymentMethod === 'cod' && this.paymentStatus !== 'paid') {
-//       this.paymentStatus = 'paid';
-//       console.log(`✅ COD order ${this.orderNumber} - Payment auto-updated to Paid on delivery`);
-      
-//       // Update payment details with timestamp
-//       if (!this.paymentDetails) {
-//         this.paymentDetails = {};
-//       }
-//       this.paymentDetails.paidAt = new Date();
-//       this.paymentDetails.paidBy = 'System (Auto-updated on delivery)';
-//     }
-//   }
-  
-//   // Handle other statuses
-//   if (status === 'picked_up' && !this.deliveryService.pickedUpDate) {
-//     this.deliveryService.pickedUpDate = new Date();
-//   }
-  
-//   if (status === 'delivered') {
-//     this.deliveryService.actualDeliveryDate = new Date();
-//   }
-  
-//   return this;
-// };
-// models/Order.js - Update updateDeliveryStatus method
-
-// models/Order.js - Add/update this method
-
+// ========== UPDATE DELIVERY STATUS METHOD - FIXED ==========
 /**
  * Update delivery status with history
  * Auto-updates payment status for COD orders when delivered
@@ -1524,12 +1463,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     this.deliveryService = {};
   }
   
-  const validStatuses = ['pending', 'processing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'failed', 'returned'];
-  
-  if (!validStatuses.includes(status)) {
-    throw new Error(`Invalid delivery status: ${status}`);
-  }
-  
+  // ✅ FIX: No enum validation - allow any status string
   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
   
   // Update delivery status
@@ -1541,7 +1475,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
   }
   
   this.deliveryService.deliveryStatusHistory.push({
-    status,
+    status: status,  // ✅ No validation
     message: message || `Status updated to ${status}`,
     location: location || '',
     timestamp: new Date()
@@ -1579,6 +1513,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
   
   return this;
 };
+
 /**
  * Set delivery service information
  */
@@ -1664,6 +1599,5 @@ orderSchema.virtual('statusLabels').get(function() {
   };
   return statusMap[this.orderStatus] || this.orderStatus;
 });
-
 
 module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
