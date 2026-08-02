@@ -545,59 +545,89 @@ const Courier = require('../models/Courier'); // 🆕 Import Courier model
 // ✅ COMPLETE STATUS MAPPING FOR ALL COURIERS
 // ============================================================
 
+// routes/courierWebhookRoutes.js
+
 const STATUS_MAP = {
-    // ========== PATHAO STATUSES ==========
-    'order.created': 'processing',
-    'order.updated': 'processing',
-    'pickup.requested': 'processing',
-    'assigned.for.pickup': 'processing',
-    'pickup': 'picked_up',
-    'pickup.failed': 'failed',
-    'pickup.cancelled': 'cancelled',
-    'at.the.sorting.hub': 'in_transit',
-    'in.transit': 'in_transit',
-    'received.at.last.mile.hub': 'in_transit',
-    'assigned.for.delivery': 'out_for_delivery',
+    // ========== PATHAO STATUSES (Direct match) ==========
+    'order.created': 'order.created',
+    'order.updated': 'order.updated',
+    'pickup.requested': 'pickup.requested',
+    'assigned.for.pickup': 'assigned.for.pickup',
+    'pickup': 'pickup',
+    'pickup.failed': 'pickup.failed',
+    'pickup.cancelled': 'pickup.cancelled',
+    'at.the.sorting.hub': 'at.the.sorting.hub',
+    'in.transit': 'in.transit',
+    'received.at.last.mile.hub': 'received.at.last.mile.hub',
+    'assigned.for.delivery': 'assigned.for.delivery',
     'delivered': 'delivered',
-    'partial.delivery': 'delivered',
-    'return': 'returned',
-    'delivery.failed': 'failed',
-    'on.hold': 'pending',
-    'payment.invoice': 'processing',
-    'paid.return': 'returned',
-    'exchange': 'processing',
-    'return.id.created': 'returned',
-    'return.in.transit': 'returned',
-    'returned.to.merchant': 'returned',
-    
-    // ========== REDX STATUSES ==========
-    'ready-for-delivery': 'processing',
-    'delivery-in-progress': 'out_for_delivery',
+    'partial.delivery': 'partial.delivery',
+    'return': 'return',
+    'delivery.failed': 'delivery.failed',
+    'on.hold': 'on.hold',
+    'payment.invoice': 'payment.invoice',
+    'paid.return': 'paid.return',
+    'exchange': 'exchange',
+    'return.id.created': 'return.id.created',
+    'return.in.transit': 'return.in.transit',
+    'returned.to.merchant': 'returned.to.merchant',
+
+    // ========== REDX STATUSES (Direct match) ==========
+    'ready-for-delivery': 'ready-for-delivery',
+    'delivery-in-progress': 'delivery-in-progress',
     'delivered': 'delivered',
-    'agent-hold': 'pending',
-    'agent-returning': 'returned',
+    'agent-hold': 'agent-hold',
+    'agent-returning': 'agent-returning',
     'returned': 'returned',
-    'agent-area-change': 'processing',
-    'pending': 'pending',
-    'processing': 'processing',
-    'picked_up': 'picked_up',
-    'in_transit': 'in_transit',
-    'out_for_delivery': 'out_for_delivery',
-    'cancelled': 'cancelled',
-    'failed': 'failed',
-    
-    // ========== STEADFAST STATUSES ==========
+    'agent-area-change': 'agent-area-change',
+
+    // ========== STEADFAST STATUSES (Direct match) ==========
     'pending': 'pending',
     'delivered': 'delivered',
-    'partial_delivered': 'delivered',
+    'partial_delivered': 'partial_delivered',
     'cancelled': 'cancelled',
-    'unknown': 'processing',
-    'processing': 'processing',
-    'picked_up': 'picked_up',
-    'in_transit': 'in_transit',
-    'out_for_delivery': 'out_for_delivery',
-    'returned': 'returned',
-    'failed': 'failed'
+    'unknown': 'unknown',
+};
+
+// Display labels for frontend (Human readable)
+const STATUS_DISPLAY = {
+    // Pathao
+    'order.created': 'Order Created',
+    'order.updated': 'Order Updated',
+    'pickup.requested': 'Pickup Requested',
+    'assigned.for.pickup': 'Assigned For Pickup',
+    'pickup': 'Picked',
+    'pickup.failed': 'Pickup Failed',
+    'pickup.cancelled': 'Pickup Cancelled',
+    'at.the.sorting.hub': 'At Sorting Hub',
+    'in.transit': 'In Transit',
+    'received.at.last.mile.hub': 'Received at Last Mile Hub',
+    'assigned.for.delivery': 'Assigned for Delivery',
+    'delivered': 'Delivered ✅',
+    'partial.delivery': 'Partial Delivery',
+    'return': 'Return',
+    'delivery.failed': 'Delivery Failed',
+    'on.hold': 'On Hold',
+    'payment.invoice': 'Payment Invoice',
+    'paid.return': 'Paid Return',
+    'exchange': 'Exchange',
+    'return.id.created': 'Return ID Created',
+    'return.in.transit': 'Return In Transit',
+    'returned.to.merchant': 'Returned To Merchant',
+    
+    // RedX
+    'ready-for-delivery': 'Ready for Delivery',
+    'delivery-in-progress': 'Delivery In Progress',
+    'agent-hold': 'Agent Hold',
+    'agent-returning': 'Agent Returning',
+    'returned': 'Returned',
+    'agent-area-change': 'Agent Area Change',
+    
+    // Steadfast
+    'pending': 'Pending',
+    'partial_delivered': 'Partial Delivered',
+    'cancelled': 'Cancelled',
+    'unknown': 'Unknown',
 };
 
 // ============================================================
@@ -657,37 +687,30 @@ function normalizeStatus(status, courier) {
 // ✅ HELPER: Extract Status from Payload
 // ============================================================
 
+// routes/courierWebhookRoutes.js
+
 function extractStatus(payload, courier) {
     console.log(`🔍 Extracting status from ${courier} payload:`, JSON.stringify(payload, null, 2));
     
     switch (courier) {
         case 'pathao':
+            // Pathao uses 'event' field
             if (payload.event) {
                 console.log(`📌 Pathao event: ${payload.event}`);
                 return payload.event;
             }
-            if (payload.status) {
-                console.log(`📌 Pathao status: ${payload.status}`);
-                return payload.status;
-            }
             break;
             
         case 'redx':
+            // RedX uses 'status' field
             if (payload.status) {
                 console.log(`📌 RedX status: ${payload.status}`);
                 return payload.status;
             }
-            if (payload.message_en) {
-                const msg = payload.message_en.toLowerCase();
-                if (msg.includes('delivered')) return 'delivered';
-                if (msg.includes('return')) return 'returned';
-                if (msg.includes('cancel')) return 'cancelled';
-                if (msg.includes('pickup')) return 'picked_up';
-                if (msg.includes('transit')) return 'in_transit';
-            }
             break;
             
         case 'steadfast':
+            // Steadfast uses 'status' field
             if (payload.status) {
                 console.log(`📌 Steadfast status: ${payload.status}`);
                 return payload.status;
@@ -696,29 +719,18 @@ function extractStatus(payload, courier) {
                 console.log(`📌 Steadfast delivery_status: ${payload.status}`);
                 return payload.status;
             }
-            if (payload.tracking_message) {
-                const msg = payload.tracking_message.toLowerCase();
-                if (msg.includes('delivered')) return 'delivered';
-                if (msg.includes('return')) return 'returned';
-                if (msg.includes('cancel')) return 'cancelled';
-                if (msg.includes('pickup')) return 'picked_up';
-            }
-            break;
-            
-        default:
-            if (payload.status) return payload.status;
-            if (payload.event) return payload.event;
-            if (payload.delivery_status) return payload.delivery_status;
             break;
     }
     
-    console.log('⚠️ No status found in payload, defaulting to processing');
-    return 'processing';
+    console.log('⚠️ No status found, defaulting to unknown');
+    return 'unknown';
 }
 
 // ============================================================
 // ✅ Webhook Handler
 // ============================================================
+
+// routes/courierWebhookRoutes.js
 
 async function handleWebhookUpdate(orderId, status, message, location, courierSlug, rawData = {}) {
     try {
@@ -731,10 +743,11 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             return { success: false, error: 'Order not found' };
         }
 
+        // Normalize the status (now returns the same as courier status)
         const normalizedStatus = normalizeStatus(status, courierSlug);
         console.log(`📌 Normalized status: "${normalizedStatus}" (from "${status}")`);
         
-        const currentStatus = order.deliveryService?.deliveryStatus || 'pending';
+        const currentStatus = order.deliveryService?.deliveryStatus || 'unknown';
         console.log(`📌 Current stored status: "${currentStatus}"`);
         
         if (currentStatus === normalizedStatus) {
@@ -744,9 +757,10 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
 
         const oldPaymentStatus = order.paymentStatus;
 
+        // Update delivery status with the courier's status name
         order.updateDeliveryStatus(
             normalizedStatus,
-            message || `Status updated to ${normalizedStatus}`,
+            message || `Status: ${normalizedStatus}`,
             location || ''
         );
 
