@@ -658,29 +658,19 @@ async function getWebhookConfig(courierSlug) {
 // ============================================================
 // ✅ HELPER: Normalize Status
 // ============================================================
-
 function normalizeStatus(status, courier) {
     if (!status) {
-        console.log('⚠️ No status provided, defaulting to processing');
-        return 'processing';
+        console.log('⚠️ No status provided, defaulting to unknown');
+        return 'unknown';
     }
     
+    // Convert to lowercase for case-insensitive matching
     const normalized = status.toLowerCase().trim();
+    console.log(`🔄 Normalizing status: "${status}" -> "${normalized}"`);
     
-    if (STATUS_MAP[normalized]) {
-        return STATUS_MAP[normalized];
-    }
-    
-    const partialMatch = Object.keys(STATUS_MAP).find(key => 
-        normalized.includes(key) || key.includes(normalized)
-    );
-    
-    if (partialMatch) {
-        return STATUS_MAP[partialMatch];
-    }
-    
-    console.log(`⚠️ Unmapped status: "${status}" for courier: ${courier}`);
-    return 'processing';
+    // ✅ FIX: Return the status as-is, don't map to "processing"
+    // The frontend will handle display using STATUS_DISPLAY
+    return normalized;
 }
 
 // ============================================================
@@ -732,6 +722,8 @@ function extractStatus(payload, courier) {
 
 // routes/courierWebhookRoutes.js
 
+// routes/courierWebhookRoutes.js
+
 async function handleWebhookUpdate(orderId, status, message, location, courierSlug, rawData = {}) {
     try {
         console.log(`📦 Processing webhook for order ${orderId} from ${courierSlug}`);
@@ -743,27 +735,44 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             return { success: false, error: 'Order not found' };
         }
 
-        // Normalize the status (now returns the same as courier status)
-        const normalizedStatus = normalizeStatus(status, courierSlug);
-        console.log(`📌 Normalized status: "${normalizedStatus}" (from "${status}")`);
+        // ✅ FIX: Don't normalize the status, keep it as-is
+        // The frontend will display it correctly
+        const actualStatus = status; // Keep the original status
         
-        const currentStatus = order.deliveryService?.deliveryStatus || 'unknown';
+        // For backward compatibility, if the status is "delivered", also update order status
+        if (actualStatus === 'delivered') {
+            order.orderStatus = 'delivered';
+            order.deliveredAt = new Date();
+        }
+        
+        console.log(`📌 Storing status: "${actualStatus}"`);
+        
+        const currentStatus = order.deliveryService?.deliveryStatus || 'pending';
         console.log(`📌 Current stored status: "${currentStatus}"`);
         
-        if (currentStatus === normalizedStatus) {
-            console.log(`📦 Order ${order.orderNumber}: Status unchanged (${normalizedStatus})`);
+        if (currentStatus === actualStatus) {
+            console.log(`📦 Order ${order.orderNumber}: Status unchanged (${actualStatus})`);
             return { success: true, message: 'Status unchanged' };
         }
 
         const oldPaymentStatus = order.paymentStatus;
 
-        // Update delivery status with the courier's status name
-        order.updateDeliveryStatus(
-            normalizedStatus,
-            message || `Status: ${normalizedStatus}`,
-            location || ''
-        );
+        // ✅ Store the actual status, not a mapped one
+        order.deliveryService.deliveryStatus = actualStatus;
+        
+        // Add to history
+        if (!order.deliveryService.deliveryStatusHistory) {
+            order.deliveryService.deliveryStatusHistory = [];
+        }
+        
+        order.deliveryService.deliveryStatusHistory.push({
+            status: actualStatus,
+            message: message || `Status updated to ${actualStatus}`,
+            location: location || '',
+            timestamp: new Date()
+        });
 
+        // Store raw webhook data for reference
         if (!order.deliveryService.webhookData) {
             order.deliveryService.webhookData = [];
         }
@@ -772,13 +781,13 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
             timestamp: new Date(),
             rawData: rawData,
             rawStatus: status,
-            normalizedStatus: normalizedStatus,
+            status: actualStatus,
             message: message
         });
 
         await order.save();
 
-        console.log(`✅ Order ${order.orderNumber}: ${currentStatus} → ${normalizedStatus} (${courierSlug})`);
+        console.log(`✅ Order ${order.orderNumber}: ${currentStatus} → ${actualStatus} (${courierSlug})`);
         if (oldPaymentStatus !== order.paymentStatus) {
             console.log(`💰 Order ${order.orderNumber}: Payment ${oldPaymentStatus} → ${order.paymentStatus}`);
         }
