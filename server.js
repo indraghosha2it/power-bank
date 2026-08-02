@@ -685,7 +685,6 @@ app.use('/api/custom-code', customCodeRoutes);
 // app.use('/api/admin/media', mediaRoutes);
 // Add this with your other route registrations
 app.use('/api/product-cost', productCostRoutes);
-app.use('/api/webhooks/courier', courierWebhookRoutes);
 
 // For debugging, you can log webhook requests
 app.use('/api/webhooks/courier', (req, res, next) => {
