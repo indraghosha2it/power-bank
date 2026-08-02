@@ -822,7 +822,6 @@
 
 // module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
 
-
 // models/Order.js
 
 const mongoose = require('mongoose');
@@ -967,7 +966,7 @@ const orderStatusHistorySchema = new mongoose.Schema({
 // ✅ FIX: Remove enum validation
 const deliveryStatusHistorySchema = new mongoose.Schema({
   status: { 
-    type: String,  // ❌ REMOVED enum validation
+    type: String,  // No enum validation
     required: true 
   },
   message: { 
@@ -1020,7 +1019,7 @@ const deliveryServiceSchema = new mongoose.Schema({
     default: '' 
   },
   deliveryStatus: { 
-    type: String,  // ❌ REMOVED enum validation
+    type: String,  // No enum validation
     default: 'pending' 
   },
   deliveryStatusHistory: [deliveryStatusHistorySchema],
@@ -1390,7 +1389,8 @@ orderSchema.methods.addStatusHistory = function(status, note = '', updatedBy = n
     this.statusHistory = [];
   }
   
-  const lastEntry = this.statusHistory[this.statusHistory.length -  ][1];
+  // ✅ FIXED: Correctly get the last entry
+  const lastEntry = this.statusHistory[this.statusHistory.length - 1];
   if (lastEntry && lastEntry.status === status && lastEntry.note === note) {
     return this;
   }
@@ -1413,7 +1413,7 @@ orderSchema.methods.addStatusHistory = function(status, note = '', updatedBy = n
     status,
     note: note || `Status: ${status}`,
     updatedBy,
-    updatedByRole: updatedByRole || 'system',
+    updatedByRole: validRole,
     timestamp: new Date()
   });
   
@@ -1453,7 +1453,7 @@ orderSchema.methods.updateOrderStatus = function(newStatus, note = '', updatedBy
   return this;
 };
 
-// ========== UPDATE DELIVERY STATUS METHOD - FIXED ==========
+// ========== UPDATE DELIVERY STATUS METHOD ==========
 /**
  * Update delivery status with history
  * Auto-updates payment status for COD orders when delivered
@@ -1463,7 +1463,6 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
     this.deliveryService = {};
   }
   
-  // ✅ FIX: No enum validation - allow any status string
   const oldStatus = this.deliveryService.deliveryStatus || 'pending';
   
   // Update delivery status
@@ -1475,7 +1474,7 @@ orderSchema.methods.updateDeliveryStatus = function(status, message = '', locati
   }
   
   this.deliveryService.deliveryStatusHistory.push({
-    status: status,  // ✅ No validation
+    status: status,
     message: message || `Status updated to ${status}`,
     location: location || '',
     timestamp: new Date()
