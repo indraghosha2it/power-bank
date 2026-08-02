@@ -762,6 +762,41 @@ async function handleWebhookUpdate(orderId, status, message, location, courierSl
     }
 }
 
+
+// routes/courierWebhookRoutes.js - Add at the top
+
+// Debug route to test if webhook routes are working
+router.get('/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Webhook routes are accessible',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            pathao: '/api/webhooks/courier/pathao',
+            redx: '/api/webhooks/courier/redx',
+            steadfast: '/api/webhooks/courier/steadfast',
+            test: '/api/webhooks/courier/test'
+        }
+    });
+});
+
+// Also add a debug POST for RedX
+router.post('/redx-debug', async (req, res) => {
+    console.log('🔍 RedX DEBUG webhook received');
+    console.log('📋 Full Body:', JSON.stringify(req.body, null, 2));
+    console.log('📋 Query:', JSON.stringify(req.query, null, 2));
+    console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+    
+    res.json({
+        success: true,
+        message: 'RedX debug webhook received',
+        received: {
+            body: req.body,
+            query: req.query
+        }
+    });
+});
+
 // ============================================================
 // ✅ PATHAO WEBHOOK - With Better Error Handling
 // ============================================================

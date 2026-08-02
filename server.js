@@ -708,9 +708,10 @@ app.use('/api/webhooks/courier', express.json());
 // Add webhook routes
 app.use('/api/webhooks/courier', courierWebhookRoutes);
 
-// For debugging, you can log webhook requests
 app.use('/api/webhooks/courier', (req, res, next) => {
     console.log(`📡 Webhook request: ${req.method} ${req.path}`);
+    console.log('📋 Headers:', req.headers);
+    console.log('📋 Body:', req.body);
     next();
 });
 
