@@ -7333,6 +7333,8 @@ const createDeliveryOrder = async (req, res) => {
 
 // controllers/orderController.js - Fix getOrderTracking to SAVE status
 
+// controllers/orderController.js - Updated getOrderTracking
+
 const getOrderTracking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -7381,16 +7383,40 @@ const getOrderTracking = async (req, res) => {
       trackingNumber
     );
     
-    // ✅ IMPORTANT: Extract the actual courier status
+    console.log('📦 Raw tracking result:', JSON.stringify(result, null, 2));
+    
+    // ✅ IMPORTANT: Extract the actual courier status from the result
     let courierStatus = order.deliveryService.deliveryStatus || 'pending';
     
+    // Try multiple ways to get the status
     if (result.success) {
-      // Get status from courier response
+      // ✅ Check all possible status fields
       if (result.status) {
         courierStatus = result.status;
       } else if (result.data?.status) {
         courierStatus = result.data.status;
+      } else if (result.data?.delivery_status) {
+        courierStatus = result.data.delivery_status;
+      } else if (result.fullResponse?.status) {
+        courierStatus = result.fullResponse.status;
+      } else if (result.fullResponse?.data?.status) {
+        courierStatus = result.fullResponse.data.status;
+      } else if (result.trackingStatus) {
+        courierStatus = result.trackingStatus;
       }
+      
+      // ✅ If status is still 'pending' or 'processing', check the history
+      if (courierStatus === 'pending' || courierStatus === 'processing') {
+        // Try to get status from history
+        if (result.history && result.history.length > 0) {
+          const lastHistory = result.history[result.history.length - 1];
+          if (lastHistory && lastHistory.status) {
+            courierStatus = lastHistory.status;
+          }
+        }
+      }
+      
+      console.log(`📌 Extracted courier status: ${courierStatus}`);
       
       // ✅ If the status is different from what's stored, UPDATE THE DATABASE
       if (courierStatus !== order.deliveryService.deliveryStatus) {
@@ -7427,6 +7453,8 @@ const getOrderTracking = async (req, res) => {
         await order.save();
         console.log(`✅ Order ${order.orderNumber} status updated to ${courierStatus} in database`);
       }
+    } else {
+      console.log('⚠️ Tracking result failed:', result.message);
     }
     
     // Prepare response with the updated status
