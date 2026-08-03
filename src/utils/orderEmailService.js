@@ -1,33 +1,10 @@
 
+
 // // utils/orderEmailService.js
-// const nodemailer = require('nodemailer');
 // const fs = require('fs');
 // const path = require('path');
 // const { generateInvoicePDF } = require('./pdfGenerator');
-
-// // Create transporter using environment variables
-// const transporter = nodemailer.createTransport({
-//   host: process.env.SMTP_HOST,
-//   port: parseInt(process.env.SMTP_PORT) || 465,
-//   secure: true,
-//   auth: {
-//     user: process.env.SMTP_USER,
-//     pass: process.env.SMTP_PASSWORD,
-//   },
-//   tls: {
-//     rejectUnauthorized: false
-//   }
-// });
-
-// // Verify connection
-// transporter.verify((error, success) => {
-//   if (error) {
-//     console.error('❌ Order Email Service - Configuration error:', error.message);
-//   } else {
-//     console.log('✅ Order Email Service is ready');
-//     console.log(`📧 Using account: ${process.env.SMTP_USER}`);
-//   }
-// });
+// const { sendEmail, sendEmailWithAttachment, getFromAddress, getOwnerEmail } = require('./emailService');
 
 // // HyperVolt Brand Colors - Updated
 // const BRAND_COLORS = {
@@ -369,8 +346,6 @@
 //   `;
 // };
 
-// // In orderEmailService.js - Update the deliveryInfoHTML function
-
 // /**
 //  * Generate delivery info HTML
 //  */
@@ -476,8 +451,10 @@
 //     </div>
 //   `;
 // };
+
 // /**
 //  * Send order placed email to customer with invoice attachment
+//  * ✅ FIXED: No internal admin notification - controller handles it
 //  */
 // const sendOrderPlacedEmail = async (order, customerEmail) => {
 //   console.log('📧 Sending order placed email to customer...');
@@ -488,12 +465,13 @@
 //     }
 
 //     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-//     // const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
 //     const itemsHTML = generateOrderItemsHTML(order.items);
 //     const summaryHTML = generateOrderSummaryHTML(order);
 //     const pricingHTML = generatePricingHTML(order);
 //     const customerInfoHTML = generateCustomerInfoHTML(order);
 //     const deliveryInfoHTML = generateDeliveryInfoHTML(order);
+
+//     const from = await getFromAddress('order');
 
 //     // Generate PDF invoice
 //     let pdfBuffer = null;
@@ -510,7 +488,6 @@
 //       console.error('❌ PDF generation error:', pdfError.message);
 //     }
 
-//     // Header based on order status
 //     const statusLabel = getStatusLabel(order.orderStatus);
 //     const statusEmoji = order.orderStatus === 'placed' ? '📦' : 
 //                         order.orderStatus === 'follow_up' ? '📞' :
@@ -526,104 +503,116 @@
 //                         order.orderStatus === 'out_for_delivery' ? '🚚' :
 //                         order.orderStatus === 'delivered' ? '🎁' : '📦';
 
-//     const mailOptions = {
-//       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
-//       to: customerEmail,
-//       // Send copy to admin
-//       subject: `${statusEmoji} Order ${statusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
-//       html: `
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//           <meta charset="UTF-8">
-//           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//           <style>
-//             body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
-//             .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
-//             .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
-//             .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
-//             .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
-//             .content { padding: 35px 30px; }
-//             .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
-//             .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
-//             .button:hover { opacity: 0.9; }
-//             .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
-//             p { color: #64748B; }
-//             strong { color: #1A1A2E; }
-//           </style>
-//         </head>
-//         <body>
-//           <div class="container">
-//             <div class="header">
-//               <h1>
-//                 <span>${statusEmoji}</span>
-//                 <span>Order ${statusLabel}!</span>
-//               </h1>
-//               <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//     const subject = `${statusEmoji} Order ${statusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`;
+    
+//     const html = `
+//       <!DOCTYPE html>
+//       <html>
+//       <head>
+//         <meta charset="UTF-8">
+//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//         <style>
+//           body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
+//           .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
+//           .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
+//           .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
+//           .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
+//           .content { padding: 35px 30px; }
+//           .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
+//           .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
+//           .button:hover { opacity: 0.9; }
+//           .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
+//           p { color: #64748B; }
+//           strong { color: #1A1A2E; }
+//         </style>
+//       </head>
+//       <body>
+//         <div class="container">
+//           <div class="header">
+//             <h1>
+//               <span>${statusEmoji}</span>
+//               <span>Order ${statusLabel}!</span>
+//             </h1>
+//             <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//           </div>
+//           <div class="content">
+//             <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
+//             <p style="margin-bottom: 25px; font-size: 16px; color: #1A1A2E;">
+//               ${order.orderStatus === 'placed' ? 'Thank you for your order! We have received your order and it is now pending confirmation. You will receive another email once your order is confirmed.' :
+//                 order.orderStatus === 'follow_up' ? 'Your order is being reviewed by our team. We will contact you shortly for confirmation.' :
+//                 order.orderStatus === 'accepted' ? 'Great news! Your order has been accepted and is being prepared.' :
+//                 order.orderStatus === 'approved' ? 'Your order has been approved and is ready for processing.' :
+//                 order.orderStatus === 'ready_to_ship' ? 'Your order is packed and ready to be shipped!' :
+//                 order.orderStatus === 'courier_assigned' ? 'A courier has been assigned to deliver your order.' :
+//                 order.orderStatus === 'processing' ? 'Your order is being processed by the courier service.' :
+//                 order.orderStatus === 'shipped' ? 'Your order has been shipped and is on its way to you!' :
+//                 order.orderStatus === 'out_for_delivery' ? 'Your order is out for delivery! Get ready to receive it.' :
+//                 order.orderStatus === 'delivered' ? 'Your order has been delivered! We hope you love your new products.' :
+//                 order.orderStatus === 'cancelled' ? 'Your order has been cancelled. If you have any questions, please contact our support team.' :
+//                 order.orderStatus === 'rejected' ? 'Your order has been rejected. Please contact our support team for more information.' :
+//                 'Thank you for your order!'}
+//             </p>
+            
+//             ${summaryHTML}
+//             ${customerInfoHTML}
+//             ${deliveryInfoHTML}
+            
+//             <div class="section-title">
+//               <span>🛍️</span>
+//               <span>Order Items</span>
 //             </div>
-//             <div class="content">
-//               <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
-//               <p style="margin-bottom: 25px; font-size: 16px; color: #1A1A2E;">
-//                 ${order.orderStatus === 'placed' ? 'Thank you for your order! We have received your order and it is now pending confirmation. You will receive another email once your order is confirmed.' :
-//                   order.orderStatus === 'follow_up' ? 'Your order is being reviewed by our team. We will contact you shortly for confirmation.' :
-//                   order.orderStatus === 'accepted' ? 'Great news! Your order has been accepted and is being prepared.' :
-//                   order.orderStatus === 'approved' ? 'Your order has been approved and is ready for processing.' :
-//                   order.orderStatus === 'ready_to_ship' ? 'Your order is packed and ready to be shipped!' :
-//                   order.orderStatus === 'courier_assigned' ? 'A courier has been assigned to deliver your order.' :
-//                   order.orderStatus === 'processing' ? 'Your order is being processed by the courier service.' :
-//                   order.orderStatus === 'shipped' ? 'Your order has been shipped and is on its way to you!' :
-//                   order.orderStatus === 'out_for_delivery' ? 'Your order is out for delivery! Get ready to receive it.' :
-//                   order.orderStatus === 'delivered' ? 'Your order has been delivered! We hope you love your new products.' :
-//                   order.orderStatus === 'cancelled' ? 'Your order has been cancelled. If you have any questions, please contact our support team.' :
-//                   order.orderStatus === 'rejected' ? 'Your order has been rejected. Please contact our support team for more information.' :
-//                   'Thank you for your order!'}
-//               </p>
-              
-//               ${summaryHTML}
-//               ${customerInfoHTML}
-//               ${deliveryInfoHTML}
-              
-//               <div class="section-title">
-//                 <span>🛍️</span>
-//                 <span>Order Items</span>
-//               </div>
-//               ${itemsHTML}
-              
-//               ${pricingHTML}
-              
+//             ${itemsHTML}
+            
+//             ${pricingHTML}
+            
 //             <div style="margin: 35px 0 25px; text-align: center;">
-//   <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
-//     Track Your Order
-//   </a>
-// </div>
-              
-//               <div class="footer">
-//                 <p style="margin-bottom: 5px;">Best regards,</p>
-//                 <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
-//                 <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${process.env.SMTP_USER}</p>
-//                 <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
-//               </div>
+//               <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
+//                 Track Your Order
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p style="margin-bottom: 5px;">Best regards,</p>
+//               <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
+//               <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${from.email}</p>
+//               <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
 //             </div>
 //           </div>
-//         </body>
-//         </html>
-//       `
-//     };
+//         </div>
+//       </body>
+//       </html>
+//     `;
 
-//     // Attach PDF if available
+//     // Prepare attachments
+//     const attachments = [];
 //     if (pdfBuffer) {
-//       mailOptions.attachments = [{
+//       attachments.push({
 //         filename: `Invoice_${order.orderNumber || order._id.slice(-8).toUpperCase()}.pdf`,
 //         content: pdfBuffer,
 //         contentType: 'application/pdf'
-//       }];
+//       });
 //       console.log('📎 PDF attachment added to email');
 //     }
 
-//     const result = await transporter.sendMail(mailOptions);
-//     console.log('✅ Order placed email sent:', result.messageId);
-//     console.log('📧 Admin copy sent to:', adminEmail);
-//     return { success: true };
+//     // ✅ Send to customer WITHOUT BCC - controller handles admin notification
+//     const result = await sendEmailWithAttachment(
+//       customerEmail,
+//       subject,
+//       html,
+//       attachments,
+//       'order',
+//       false  // <-- DISABLE BCC to admin
+//     );
+
+//     // ✅ REMOVED: Internal admin notification - controller handles it
+//     // await sendOrderNotificationToAdmin(order, 'new');
+
+//     if (result.success) {
+//       console.log('✅ Order placed email sent:', result.messageId);
+//       return { success: true };
+//     } else {
+//       throw new Error(result.error);
+//     }
 //   } catch (error) {
 //     console.error('❌ Order placed email error:', error.message);
 //     return { success: false, error: error.message };
@@ -632,12 +621,20 @@
 
 // /**
 //  * Send order notification email to admin
+//  * Called ONLY from controller
 //  */
 // const sendOrderNotificationToAdmin = async (order, eventType = 'new') => {
 //   console.log('📧 Sending order notification email to admin...');
   
 //   try {
-//     const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
+//     const ownerEmail = await getOwnerEmail('order');
+    
+//     if (!ownerEmail) {
+//       console.warn('⚠️ Owner email not configured. Skipping admin notification.');
+//       return { success: false, error: 'Owner email not configured' };
+//     }
+
+//     const from = await getFromAddress('order');
 //     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 //     const itemsHTML = generateOrderItemsHTML(order.items);
 //     const summaryHTML = generateOrderSummaryHTML(order);
@@ -671,80 +668,89 @@
 //       additionalMessage = `Payment status has been updated to "${order.paymentStatus.toUpperCase()}".`;
 //     }
     
-//     const result = await transporter.sendMail({
-//       from: `"HyperVolt System" <${process.env.SMTP_USER}>`,
-//       to: adminEmail,
-//       subject: `${headerEmoji} ${headerTitle} - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
-//       html: `
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//           <meta charset="UTF-8">
-//           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//           <style>
-//             body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; background-color: #F0F7FA; }
-//             .container { max-width: 700px; margin: 20px auto; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
-//             .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 25px 30px; text-align: center; }
-//             .header h1 { color: #FFFFFF; margin: 0; font-size: 24px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
-//             .content { padding: 30px; }
-//             .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; border: none; }
-//             .button:hover { opacity: 0.9; }
-//             .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; color: #1A1A2E; }
-//             p { color: #64748B; }
-//             strong { color: #1A1A2E; }
-//           </style>
-//         </head>
-//         <body>
-//           <div class="container">
-//             <div class="header">
-//               <h1>
-//                 <span>${headerEmoji}</span>
-//                 <span>${headerTitle}</span>
-//               </h1>
+//     const subject = `${headerEmoji} ${headerTitle} - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`;
+    
+//     const html = `
+//       <!DOCTYPE html>
+//       <html>
+//       <head>
+//         <meta charset="UTF-8">
+//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//         <style>
+//           body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; background-color: #F0F7FA; }
+//           .container { max-width: 700px; margin: 20px auto; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
+//           .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 25px 30px; text-align: center; }
+//           .header h1 { color: #FFFFFF; margin: 0; font-size: 24px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+//           .content { padding: 30px; }
+//           .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; border: none; }
+//           .button:hover { opacity: 0.9; }
+//           .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; color: #1A1A2E; }
+//           p { color: #64748B; }
+//           strong { color: #1A1A2E; }
+//         </style>
+//       </head>
+//       <body>
+//         <div class="container">
+//           <div class="header">
+//             <h1>
+//               <span>${headerEmoji}</span>
+//               <span>${headerTitle}</span>
+//             </h1>
+//           </div>
+//           <div class="content">
+//             <p>${additionalMessage}</p>
+            
+//             ${customerInfoHTML}
+//             ${summaryHTML}
+//             ${deliveryInfoHTML}
+            
+//             <div class="section-title">🛍️ Order Items</div>
+//             ${itemsHTML}
+            
+//             ${pricingHTML}
+            
+//             <div style="text-align: center; margin: 30px 0;">
+//               <a href="${frontendUrl}/authorize/orders" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none; cursor: pointer;">
+//                 View Order in Dashboard
+//               </a>
 //             </div>
-//             <div class="content">
-//               <p>${additionalMessage}</p>
-              
-//               ${customerInfoHTML}
-//               ${summaryHTML}
-//               ${deliveryInfoHTML}
-              
-//               <div class="section-title">🛍️ Order Items</div>
-//               ${itemsHTML}
-              
-//               ${pricingHTML}
-              
-//              <div style="text-align: center; margin: 30px 0;">
-//   <a href="${frontendUrl}/authorize/orders" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none; cursor: pointer;">
-//     View Order in Dashboard
-//   </a>
-// </div>
-              
-//               <div style="background: #F0F7FA; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #0D506F30;">
-//                 <p style="margin: 0; font-size: 14px; color: #06B6D4;">⚡ Please review and take necessary action.</p>
-//               </div>
+            
+//             <div style="background: #F0F7FA; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #0D506F30;">
+//               <p style="margin: 0; font-size: 14px; color: #06B6D4;">⚡ Please review and take necessary action.</p>
 //             </div>
 //           </div>
-//         </body>
-//         </html>
-//       `
-//     });
+//         </div>
+//       </body>
+//       </html>
+//     `;
+
+//     // ✅ Send directly to admin
+//     const result = await sendEmail(
+//       ownerEmail,
+//       subject,
+//       html,
+//       null,
+//       'order'
+//     );
     
-//     console.log('✅ Admin order notification sent:', result.messageId);
-//     return { success: true };
+//     if (result.success) {
+//       console.log('✅ Admin order notification sent:', result.messageId);
+//       return { success: true };
+//     } else {
+//       throw new Error(result.error);
+//     }
 //   } catch (error) {
 //     console.error('❌ Admin notification error:', error.message);
 //     return { success: false, error: error.message };
 //   }
 // };
 
-
-
 // /**
 //  * Send order status update email to customer with invoice attachment
+//  * ✅ FIXED: No internal admin notification - controller handles it
 //  */
 // const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newStatus) => {
-//   console.log('📧 Sending order status update email with full details...');
+//   console.log('📧 Sending order status update email to customer...');
   
 //   try {
 //     if (!customerEmail) {
@@ -752,7 +758,6 @@
 //     }
     
 //     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-//     const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
 //     const newStatusColor = getStatusColor(newStatus);
 //     const newStatusLabel = getStatusLabel(newStatus);
 //     const itemsHTML = generateOrderItemsHTML(order.items);
@@ -760,6 +765,8 @@
 //     const pricingHTML = generatePricingHTML(order);
 //     const customerInfoHTML = generateCustomerInfoHTML(order);
 //     const deliveryInfoHTML = generateDeliveryInfoHTML(order);
+
+//     const from = await getFromAddress('order');
 
 //     // Generate PDF invoice
 //     let pdfBuffer = null;
@@ -805,9 +812,8 @@
 //         statusEmoji = '🚚';
 //         break;
 //       case 'processing':
-//         // Get courier name if available
 //         const courierName = order.deliveryService?.courierName || 'courier';
-//         statusMessage = `Your order has been assigned to ${courierName} for delivery.You can now track your order using the tracking details below.`;
+//         statusMessage = `Your order has been assigned to ${courierName} for delivery. You can now track your order using the tracking details below.`;
 //         statusEmoji = '🚚';
 //         break;
 //       case 'shipped':
@@ -839,106 +845,120 @@
 //         statusEmoji = '📝';
 //     }
     
-//     const mailOptions = {
-//       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
-//       to: customerEmail,
-     
-//       subject: `${statusEmoji} Order ${newStatusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
-//       html: `
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//           <meta charset="UTF-8">
-//           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//           <style>
-//             body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
-//             .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
-//             .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
-//             .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
-//             .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
-//             .content { padding: 35px 30px; }
-//             .status-box { background: ${newStatusColor}10; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${newStatusColor}; border: 1px solid ${newStatusColor}30; }
-//             .status-badge { display: inline-block; padding: 8px 24px; background: ${newStatusColor}; color: #FFFFFF; border-radius: 40px; font-weight: 600; text-transform: uppercase; font-size: 14px; }
-//             .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
-//             .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
-//             .button:hover { opacity: 0.9; }
-//             .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
-//             p { color: #64748B; }
-//             strong { color: #1A1A2E; }
-//           </style>
-//         </head>
-//         <body>
-//           <div class="container">
-//             <div class="header">
-//               <h1>
-//                 <span>${statusEmoji}</span>
-//                 <span>Order ${newStatusLabel}!</span>
-//               </h1>
-//               <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//     const subject = `${statusEmoji} Order ${newStatusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`;
+    
+//     const html = `
+//       <!DOCTYPE html>
+//       <html>
+//       <head>
+//         <meta charset="UTF-8">
+//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//         <style>
+//           body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
+//           .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
+//           .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
+//           .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
+//           .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
+//           .content { padding: 35px 30px; }
+//           .status-box { background: ${newStatusColor}10; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${newStatusColor}; border: 1px solid ${newStatusColor}30; }
+//           .status-badge { display: inline-block; padding: 8px 24px; background: ${newStatusColor}; color: #FFFFFF; border-radius: 40px; font-weight: 600; text-transform: uppercase; font-size: 14px; }
+//           .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
+//           .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
+//           .button:hover { opacity: 0.9; }
+//           .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
+//           p { color: #64748B; }
+//           strong { color: #1A1A2E; }
+//         </style>
+//       </head>
+//       <body>
+//         <div class="container">
+//           <div class="header">
+//             <h1>
+//               <span>${statusEmoji}</span>
+//               <span>Order ${newStatusLabel}!</span>
+//             </h1>
+//             <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//           </div>
+//           <div class="content">
+//             <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
+            
+//             <div class="status-box">
+//               <div class="status-badge">${newStatusLabel.toUpperCase()}</div>
+//               <p style="margin: 15px 0 0 0;">${statusMessage}</p>
 //             </div>
-//             <div class="content">
-//               <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
-              
-//               <div class="status-box">
-//                 <div class="status-badge">${newStatusLabel.toUpperCase()}</div>
-//                 <p style="margin: 15px 0 0 0;">${statusMessage}</p>
-//               </div>
-              
-//               ${summaryHTML}
-//               ${customerInfoHTML}
-//               ${deliveryInfoHTML}
-              
-//               <div class="section-title">
-//                 <span>🛍️</span>
-//                 <span>Order Items</span>
-//               </div>
-//               ${itemsHTML}
-              
-//               ${pricingHTML}
-              
-//              <div style="margin: 35px 0 25px; text-align: center;">
-//   <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
-//     View Order Details
-//   </a>
-// </div>
-              
-//               <div class="footer">
-//                 <p style="margin-bottom: 5px;">Best regards,</p>
-//                 <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
-//                 <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${process.env.SMTP_USER}</p>
-//                 <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
-//               </div>
+            
+//             ${summaryHTML}
+//             ${customerInfoHTML}
+//             ${deliveryInfoHTML}
+            
+//             <div class="section-title">
+//               <span>🛍️</span>
+//               <span>Order Items</span>
+//             </div>
+//             ${itemsHTML}
+            
+//             ${pricingHTML}
+            
+//             <div style="margin: 35px 0 25px; text-align: center;">
+//               <a href="${frontendUrl}/track" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
+//                 View Order Details
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p style="margin-bottom: 5px;">Best regards,</p>
+//               <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
+//               <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${from.email}</p>
+//               <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
 //             </div>
 //           </div>
-//         </body>
-//         </html>
-//       `
-//     };
+//         </div>
+//       </body>
+//       </html>
+//     `;
 
-//     // Attach PDF if available
+//     // Prepare attachments
+//     const attachments = [];
 //     if (pdfBuffer) {
-//       mailOptions.attachments = [{
+//       attachments.push({
 //         filename: `Invoice_${order.orderNumber || order._id.slice(-8).toUpperCase()}.pdf`,
 //         content: pdfBuffer,
 //         contentType: 'application/pdf'
-//       }];
+//       });
 //       console.log('📎 PDF attachment added to status update email');
 //     }
 
-//     const result = await transporter.sendMail(mailOptions);
-//     console.log('✅ Order status update email sent:', result.messageId);
-//     console.log('📧 Admin copy sent to:', adminEmail);
-//     return { success: true };
+//     // ✅ Send to customer WITHOUT BCC - controller handles admin notification
+//     const result = await sendEmailWithAttachment(
+//       customerEmail,
+//       subject,
+//       html,
+//       attachments,
+//       'order',
+//       false  // <-- DISABLE BCC to admin
+//     );
+
+//     // ✅ REMOVED: Internal admin notification - controller handles it
+//     // await sendOrderNotificationToAdmin(order, 'status_update');
+
+//     if (result.success) {
+//       console.log('✅ Order status update email sent to customer:', result.messageId);
+//       return { success: true };
+//     } else {
+//       throw new Error(result.error);
+//     }
 //   } catch (error) {
 //     console.error('❌ Status update email error:', error.message);
 //     return { success: false, error: error.message };
 //   }
 // };
+
 // /**
 //  * Send payment status update email to customer with invoice attachment
+//  * ✅ FIXED: No internal admin notification - controller handles it
 //  */
 // const sendPaymentStatusUpdateEmail = async (order, customerEmail, oldStatus, newStatus) => {
-//   console.log('📧 Sending payment status update email...');
+//   console.log('📧 Sending payment status update email to customer...');
   
 //   try {
 //     if (!customerEmail) {
@@ -946,11 +966,12 @@
 //     }
     
 //     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-//     // const adminEmail = process.env.OWNER_EMAIL || process.env.SMTP_USER;
 //     const itemsHTML = generateOrderItemsHTML(order.items);
 //     const summaryHTML = generateOrderSummaryHTML(order);
 //     const pricingHTML = generatePricingHTML(order);
 //     const customerInfoHTML = generateCustomerInfoHTML(order);
+
+//     const from = await getFromAddress('order');
 
 //     // Generate PDF invoice
 //     let pdfBuffer = null;
@@ -998,93 +1019,107 @@
 //         statusColor = '#0D506F';
 //     }
     
-//     const mailOptions = {
-//       from: `"HyperVolt" <${process.env.SMTP_USER}>`,
-//       to: customerEmail,
-//       // bcc: adminEmail,  // Send copy to admin
-//       subject: `${statusEmoji} Payment Status Update - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`,
-//       html: `
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//           <meta charset="UTF-8">
-//           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//           <style>
-//             body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
-//             .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
-//             .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
-//             .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
-//             .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
-//             .content { padding: 35px 30px; }
-//             .status-box { background: ${statusColor}10; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${statusColor}; border: 1px solid ${statusColor}30; }
-//             .status-badge { display: inline-block; padding: 8px 24px; background: ${statusColor}; color: #FFFFFF; border-radius: 40px; font-weight: 600; text-transform: uppercase; font-size: 14px; }
-//             .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
-//             .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
-//             .button:hover { opacity: 0.9; }
-//             .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
-//             p { color: #64748B; }
-//             strong { color: #1A1A2E; }
-//           </style>
-//         </head>
-//         <body>
-//           <div class="container">
-//             <div class="header">
-//               <h1>
-//                 <span>${statusEmoji}</span>
-//                 <span>Payment Status Update</span>
-//               </h1>
-//               <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//     const subject = `${statusEmoji} Payment Status Update - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`;
+    
+//     const html = `
+//       <!DOCTYPE html>
+//       <html>
+//       <head>
+//         <meta charset="UTF-8">
+//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//         <style>
+//           body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1A1A2E; margin: 0; padding: 0; background-color: #F0F7FA; }
+//           .container { max-width: 700px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(13, 80, 111, 0.1); border: 1px solid #0D506F30; }
+//           .header { background: linear-gradient(135deg, #0D506F, #06B6D4); padding: 30px; text-align: center; }
+//           .header h1 { color: #FFFFFF; margin: 0; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; }
+//           .header p { color: #FFFFFF; margin: 10px 0 0 0; opacity: 0.9; }
+//           .content { padding: 35px 30px; }
+//           .status-box { background: ${statusColor}10; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid ${statusColor}; border: 1px solid ${statusColor}30; }
+//           .status-badge { display: inline-block; padding: 8px 24px; background: ${statusColor}; color: #FFFFFF; border-radius: 40px; font-weight: 600; text-transform: uppercase; font-size: 14px; }
+//           .section-title { font-size: 18px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; color: #1A1A2E; }
+//           .button { background: linear-gradient(135deg, #06B6D4, #0D506F); color: #FFFFFF; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; border: none; }
+//           .button:hover { opacity: 0.9; }
+//           .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #0D506F30; text-align: center; }
+//           p { color: #64748B; }
+//           strong { color: #1A1A2E; }
+//         </style>
+//       </head>
+//       <body>
+//         <div class="container">
+//           <div class="header">
+//             <h1>
+//               <span>${statusEmoji}</span>
+//               <span>Payment Status Update</span>
+//             </h1>
+//             <p>Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}</p>
+//           </div>
+//           <div class="content">
+//             <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
+            
+//             <div class="status-box">
+//               <div class="status-badge">${newStatus.toUpperCase()}</div>
+//               <p style="margin: 15px 0 0 0;">${statusMessage}</p>
 //             </div>
-//             <div class="content">
-//               <p style="margin-bottom: 25px; font-size: 16px;">Dear <strong>${order.customerInfo?.fullName || 'Valued Customer'}</strong>,</p>
-              
-//               <div class="status-box">
-//                 <div class="status-badge">${newStatus.toUpperCase()}</div>
-//                 <p style="margin: 15px 0 0 0;">${statusMessage}</p>
-//               </div>
-              
-//               ${summaryHTML}
-//               ${customerInfoHTML}
-              
-//               <div class="section-title">
-//                 <span>🛍️</span>
-//                 <span>Order Items</span>
-//               </div>
-//               ${itemsHTML}
-              
-//               ${pricingHTML}
-              
-//               <div style="margin: 35px 0 25px; text-align: center;">
-//                 <a href="${frontendUrl}/customer/orders" class="button">View Order Details</a>
-//               </div>
-              
-//               <div class="footer">
-//                 <p style="margin-bottom: 5px;">Best regards,</p>
-//                 <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
-//                 <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${process.env.SMTP_USER}</p>
-//                 <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
-//               </div>
+            
+//             ${summaryHTML}
+//             ${customerInfoHTML}
+            
+//             <div class="section-title">
+//               <span>🛍️</span>
+//               <span>Order Items</span>
+//             </div>
+//             ${itemsHTML}
+            
+//             ${pricingHTML}
+            
+//             <div style="margin: 35px 0 25px; text-align: center;">
+//               <a href="${frontendUrl}/customer/orders" class="button" style="color: #FFFFFF; text-decoration: none; display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #06B6D4, #0D506F); border-radius: 8px; font-weight: 600; font-size: 16px; border: none;">
+//                 View Order Details
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p style="margin-bottom: 5px;">Best regards,</p>
+//               <p style="margin: 0; font-weight: bold; color: #06B6D4;">HyperVolt Team</p>
+//               <p style="font-size: 12px; color: #94A3B8; margin-top: 15px;">Need help? Contact us at ${from.email}</p>
+//               <p style="font-size: 11px; color: #94A3B8; margin-top: 5px;">⚡ Powering Your Digital Life</p>
 //             </div>
 //           </div>
-//         </body>
-//         </html>
-//       `
-//     };
+//         </div>
+//       </body>
+//       </html>
+//     `;
 
-//     // Attach PDF if available
+//     // Prepare attachments
+//     const attachments = [];
 //     if (pdfBuffer) {
-//       mailOptions.attachments = [{
+//       attachments.push({
 //         filename: `Invoice_${order.orderNumber || order._id.slice(-8).toUpperCase()}.pdf`,
 //         content: pdfBuffer,
 //         contentType: 'application/pdf'
-//       }];
+//       });
 //       console.log('📎 PDF attachment added to payment update email');
 //     }
 
-//     const result = await transporter.sendMail(mailOptions);
-//     console.log('✅ Payment status update email sent:', result.messageId);
-//     console.log('📧 Admin copy sent to:', adminEmail);
-//     return { success: true };
+//     // ✅ Send to customer WITHOUT BCC - controller handles admin notification
+//     const result = await sendEmailWithAttachment(
+//       customerEmail,
+//       subject,
+//       html,
+//       attachments,
+//       'order',
+//       false  // <-- DISABLE BCC to admin
+//     );
+
+//     // ✅ REMOVED: Internal admin notification - controller handles it
+//     // await sendOrderNotificationToAdmin(order, 'payment_update');
+
+//     if (result.success) {
+//       console.log('✅ Payment status update email sent to customer:', result.messageId);
+//       return { success: true };
+//     } else {
+//       throw new Error(result.error);
+//     }
 //   } catch (error) {
 //     console.error('❌ Payment status update email error:', error.message);
 //     return { success: false, error: error.message };
@@ -1098,6 +1133,7 @@
 //   sendOrderStatusUpdateEmail,
 //   sendPaymentStatusUpdateEmail
 // };
+
 
 // utils/orderEmailService.js
 const fs = require('fs');
@@ -1160,17 +1196,20 @@ const getStatusColor = (status) => {
     'follow_up': '#0D506F',
     'accepted': '#0D506F',
     'approved': '#0D506F',
+    'hold': '#F59E0B',                    // ✅ Yellow for On Hold
     'ready_to_ship': '#0D506F',
     'courier_assigned': '#0D506F',
     'rejected': '#EF4444',
     'cancelled': '#EF4444',
     'reminder': '#F59E0B',
-    'processing': '#0D506F',
+    'processing': '#06B6D4',              // ✅ Fixed - Blue/Cyan for Processing
     'shipped': '#0D506F',
     'out_for_delivery': '#F59E0B',
     'delivered': '#22C55E',
     'refunded': '#94A3B8',
-    'failed': '#EF4444'
+    'failed': '#EF4444',
+    'returned': '#8B5CF6',                // ✅ Purple for Returned
+    'partial_delivery': '#F59E0B'         // ✅ Yellow for Partial Delivery
   };
   return statusColors[status] || '#0D506F';
 };
@@ -1187,7 +1226,7 @@ const getPaymentStatusColor = (status) => {
 };
 
 /**
- * Get status display label
+ * Get status display label - Updated for all statuses
  */
 const getStatusLabel = (status) => {
   const labels = {
@@ -1195,17 +1234,20 @@ const getStatusLabel = (status) => {
     'follow_up': 'Follow Up',
     'accepted': 'Accepted',
     'approved': 'Approved',
+    'hold': 'On Hold',                    // ✅ Added
     'ready_to_ship': 'Ready to Ship',
     'courier_assigned': 'Courier Assigned',
     'rejected': 'Rejected',
     'cancelled': 'Cancelled',
     'reminder': 'Reminder',
-    'processing': 'Courier Assigned',
+    'processing': 'Processing',           // ✅ Fixed
     'shipped': 'Shipped',
     'out_for_delivery': 'Out for Delivery',
     'delivered': 'Delivered',
     'refunded': 'Refunded',
-    'failed': 'Failed'
+    'failed': 'Failed',
+    'returned': 'Returned',               // ✅ Added
+    'partial_delivery': 'Partial Delivery' // ✅ Added
   };
   return labels[status] || status;
 };
@@ -1484,11 +1526,26 @@ const generateDeliveryInfoHTML = (order) => {
     borderColor = '#06B6D4';
     titleColor = '#06B6D4';
     titleIcon = '📦';
+  } else if (order.orderStatus === 'hold') {
+    bgColor = '#FEFCE8';
+    borderColor = '#F59E0B';
+    titleColor = '#F59E0B';
+    titleIcon = '⏸️';
   } else if (order.orderStatus === 'cancelled' || order.orderStatus === 'rejected') {
     bgColor = '#FEF2F2';
     borderColor = '#EF4444';
     titleColor = '#EF4444';
     titleIcon = '❌';
+  } else if (order.orderStatus === 'returned') {
+    bgColor = '#F3E8FF';
+    borderColor = '#8B5CF6';
+    titleColor = '#8B5CF6';
+    titleIcon = '🔄';
+  } else if (order.orderStatus === 'partial_delivery') {
+    bgColor = '#FEFCE8';
+    borderColor = '#F59E0B';
+    titleColor = '#F59E0B';
+    titleIcon = '📦';
   }
   
   let reasonText = '';
@@ -1592,6 +1649,7 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
                         order.orderStatus === 'follow_up' ? '📞' :
                         order.orderStatus === 'accepted' ? '✅' :
                         order.orderStatus === 'approved' ? '✅' :
+                        order.orderStatus === 'hold' ? '⏸️' :
                         order.orderStatus === 'ready_to_ship' ? '📦' :
                         order.orderStatus === 'courier_assigned' ? '🚚' :
                         order.orderStatus === 'rejected' ? '❌' :
@@ -1600,7 +1658,9 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
                         order.orderStatus === 'processing' ? '⚙️' :
                         order.orderStatus === 'shipped' ? '🚚' :
                         order.orderStatus === 'out_for_delivery' ? '🚚' :
-                        order.orderStatus === 'delivered' ? '🎁' : '📦';
+                        order.orderStatus === 'delivered' ? '🎁' :
+                        order.orderStatus === 'returned' ? '🔄' :
+                        order.orderStatus === 'partial_delivery' ? '📦' : '📦';
 
     const subject = `${statusEmoji} Order ${statusLabel}! - Order #${order.orderNumber || order._id.slice(-8).toUpperCase()}`;
     
@@ -1641,14 +1701,17 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
                 order.orderStatus === 'follow_up' ? 'Your order is being reviewed by our team. We will contact you shortly for confirmation.' :
                 order.orderStatus === 'accepted' ? 'Great news! Your order has been accepted and is being prepared.' :
                 order.orderStatus === 'approved' ? 'Your order has been approved and is ready for processing.' :
+                order.orderStatus === 'hold' ? 'Your order has been placed on hold. We will contact you shortly with more information.' :
                 order.orderStatus === 'ready_to_ship' ? 'Your order is packed and ready to be shipped!' :
                 order.orderStatus === 'courier_assigned' ? 'A courier has been assigned to deliver your order.' :
-                order.orderStatus === 'processing' ? 'Your order is being processed by the courier service.' :
+                order.orderStatus === 'processing' ? 'Your order is being processed and will be shipped soon.' :
                 order.orderStatus === 'shipped' ? 'Your order has been shipped and is on its way to you!' :
                 order.orderStatus === 'out_for_delivery' ? 'Your order is out for delivery! Get ready to receive it.' :
                 order.orderStatus === 'delivered' ? 'Your order has been delivered! We hope you love your new products.' :
                 order.orderStatus === 'cancelled' ? 'Your order has been cancelled. If you have any questions, please contact our support team.' :
                 order.orderStatus === 'rejected' ? 'Your order has been rejected. Please contact our support team for more information.' :
+                order.orderStatus === 'returned' ? 'Your order has been returned. Please contact our support team if you have any questions.' :
+                order.orderStatus === 'partial_delivery' ? 'Part of your order has been delivered. The remaining items will be delivered soon.' :
                 'Thank you for your order!'}
             </p>
             
@@ -1702,9 +1765,6 @@ const sendOrderPlacedEmail = async (order, customerEmail) => {
       'order',
       false  // <-- DISABLE BCC to admin
     );
-
-    // ✅ REMOVED: Internal admin notification - controller handles it
-    // await sendOrderNotificationToAdmin(order, 'new');
 
     if (result.success) {
       console.log('✅ Order placed email sent:', result.messageId);
@@ -1885,6 +1945,7 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
     let statusMessage = '';
     let statusEmoji = '';
     
+    // ========== UPDATED STATUS MESSAGES ==========
     switch(newStatus) {
       case 'placed':
         statusMessage = 'Your order has been placed successfully. We are processing your order.';
@@ -1902,6 +1963,10 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
         statusMessage = 'Your order has been approved and is ready for processing.';
         statusEmoji = '✅';
         break;
+      case 'hold':
+        statusMessage = 'Your order has been placed on hold. We will contact you shortly with more information.';
+        statusEmoji = '⏸️';
+        break;
       case 'ready_to_ship':
         statusMessage = 'Your order is packed and ready to be shipped!';
         statusEmoji = '📦';
@@ -1911,9 +1976,8 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
         statusEmoji = '🚚';
         break;
       case 'processing':
-        const courierName = order.deliveryService?.courierName || 'courier';
-        statusMessage = `Your order has been assigned to ${courierName} for delivery. You can now track your order using the tracking details below.`;
-        statusEmoji = '🚚';
+        statusMessage = 'Your order is being processed and will be shipped soon.';
+        statusEmoji = '⚙️';
         break;
       case 'shipped':
         statusMessage = 'Your order has been shipped and is on its way to you!';
@@ -1938,6 +2002,14 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
       case 'reminder':
         statusMessage = 'A reminder has been sent regarding your order.';
         statusEmoji = '⏰';
+        break;
+      case 'returned':
+        statusMessage = 'Your order has been returned. Please contact our support team if you have any questions.';
+        statusEmoji = '🔄';
+        break;
+      case 'partial_delivery':
+        statusMessage = 'Part of your order has been delivered. The remaining items will be delivered soon.';
+        statusEmoji = '📦';
         break;
       default:
         statusMessage = `Your order status has been updated to ${newStatusLabel}.`;
@@ -2036,9 +2108,6 @@ const sendOrderStatusUpdateEmail = async (order, customerEmail, oldStatus, newSt
       'order',
       false  // <-- DISABLE BCC to admin
     );
-
-    // ✅ REMOVED: Internal admin notification - controller handles it
-    // await sendOrderNotificationToAdmin(order, 'status_update');
 
     if (result.success) {
       console.log('✅ Order status update email sent to customer:', result.messageId);
@@ -2209,9 +2278,6 @@ const sendPaymentStatusUpdateEmail = async (order, customerEmail, oldStatus, new
       'order',
       false  // <-- DISABLE BCC to admin
     );
-
-    // ✅ REMOVED: Internal admin notification - controller handles it
-    // await sendOrderNotificationToAdmin(order, 'payment_update');
 
     if (result.success) {
       console.log('✅ Payment status update email sent to customer:', result.messageId);

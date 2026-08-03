@@ -1628,7 +1628,7 @@ orderSchema.virtual('isCancelled').get(function() {
 });
 
 orderSchema.virtual('canCreateDelivery').get(function() {
-  const canCreateStatuses = ['accepted'];
+  const canCreateStatuses = ['accepted', 'approved', 'hold', 'processing', 'ready_to_ship'];
   return canCreateStatuses.includes(this.orderStatus) && 
          !this.deliveryService?.courierOrderId;
 });

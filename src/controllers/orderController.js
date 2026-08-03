@@ -5822,7 +5822,7 @@ const updateOrderStatus = async (req, res) => {
 
     // ========== ALLOWED STATUS TRANSITIONS - FULL FLOW ==========
 const allowedTransitions = {
-  'placed': ['follow_up', 'cancelled'],
+  'placed': ['follow_up', 'approved', 'hold', 'processing', 'cancelled'],
   'follow_up': ['accepted', 'rejected', 'cancelled', 'reminder'],
   'reminder': ['accepted', 'rejected', 'cancelled'],
   'accepted': ['approved', 'processing', 'hold', 'cancelled'],
@@ -8733,8 +8733,8 @@ const bulkUpdateOrder = async (req, res) => {
 
     // Check if order can be edited
     const nonEditableStatuses = [
-      'courier_assigned', 'processing', 'shipped', 'out_for_delivery',
-      'delivered', 'cancelled', 'rejected', 'refunded', 'returned'
+      'courier_assigned', 'ready_to_ship', 'shipped', 'out_for_delivery',
+      'delivered', 'partial_delivery', 'cancelled', 'rejected', 'refunded', 'returned'
     ];
     
     if (nonEditableStatuses.includes(order.orderStatus)) {
